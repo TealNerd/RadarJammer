@@ -53,12 +53,13 @@ public class PlayerLocation {
 		boolean vBounds = Math.abs(vAngle - pitch) < vFov;
 		
 		PlayerLocation farCorner = new PlayerLocation(x + 10, y, z, 0, 0);
-		double a = farCorner.getDistance(loc);
+		PlayerLocation adjusted = new PlayerLocation(loc.x, y, loc.z, 0, 0);
+		double a = farCorner.getDistance(adjusted);
 		double b = farCorner.getDistance(this);
-		double c = loc.getDistance(this);
+		double c = adjusted.getDistance(this);
 		double cosA = (-(a * a) + (b * b) + (c * c)) / (2 * a * c);
 		double hRads = Math.acos(cosA);
-		double hAngle = Math.abs(hRads * (180 / Math.PI));
+		double hAngle = hRads * (180 / Math.PI);
 		double realYaw = (yaw + 90) % 360;
 		if(realYaw < 0) realYaw += 360.0;
 		boolean hBounds = Math.abs(hAngle - realYaw) < hFov;
