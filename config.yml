@@ -1,0 +1,4 @@
+minCheck: 5
+maxCheck: auto
+vFov = 30.0
+hFov = 50.0
