@@ -58,7 +58,7 @@ public class PlayerLocation {
 		double c = loc.getDistance(this);
 		double cosA = (-(a * a) + (b * b) + (c * c)) / (2 * a * c);
 		double hRads = Math.acos(cosA);
-		double hAngle = hRads * (180 / Math.PI);
+		double hAngle = Math.abs(hRads * (180 / Math.PI));
 		double realYaw = (yaw + 90) % 360;
 		if(realYaw < 0) realYaw += 360.0;
 		boolean hBounds = Math.abs(hAngle - realYaw) < hFov;
