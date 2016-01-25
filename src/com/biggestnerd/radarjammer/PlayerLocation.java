@@ -62,6 +62,7 @@ public class PlayerLocation {
 		double hAngle = hRads * (180 / Math.PI);
 		double realYaw = (yaw + 90) % 360;
 		if(realYaw < 0) realYaw += 360.0;
+		if(hAngle < 0) hAngle += 360.0;
 		boolean hBounds = Math.abs(hAngle - realYaw) < hFov;
 		
 		return vBounds && hBounds;
