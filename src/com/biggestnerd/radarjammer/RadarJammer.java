@@ -21,7 +21,7 @@ public class RadarJammer extends JavaPlugin {
 	
 	private void registerVisibilityManager() {
 		FileConfiguration config = getConfig();
-		int minCheck = config.getInt("minCheck", 5);
+		int minCheck = config.getInt("minCheck", 7);
 		String maxCheckString = config.getString("maxCheck", "auto");
 		int maxCheck = 0;
 		if(maxCheckString.equals("auto")) {

@@ -7,13 +7,13 @@ public class PlayerLocation {
 	public static double vFov;
 	public static double hFov;
 	
-	private final int x;
-	private final int y;
-	private final int z;
-	private final float yaw;
-	private final float pitch;
+	private double x;
+	private double y;
+	private double z;
+	private float yaw;
+	private float pitch;
 	
-	public PlayerLocation(int x, int y, int z, float yaw, float pitch) {
+	public PlayerLocation(double x, double y, double z, float yaw, float pitch) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
@@ -25,59 +25,53 @@ public class PlayerLocation {
 	public PlayerLocation(Location loc) {
 		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch());
 	}
-
-	public int getX() {
-		return x;
-	}
-
-	public int getY() {
-		return y;
-	}
-
-	public int getZ() {
-		return z;
-	}
 	
-	public float getYaw() {
-		return yaw;
-	}
-	
-	public float getPitch() {
-		return pitch;
-	}
-	
-	public boolean canSee(PlayerLocation loc) {
-		PlayerLocation rightCorner = new PlayerLocation(loc.x, y, loc.z, 0, 0);
-		double vRads = Math.atan(rightCorner.getDistance(loc) / rightCorner.getDistance(this));
+	public boolean canSee(PlayerLocation other) {
+		PlayerLocation rightCorner = new PlayerLocation(other.x, y, other.z, 0, 0);
+		double vRads = Math.atan(rightCorner.getDistance(other) / rightCorner.getDistance(this));
 		double vAngle = vRads * (180 / Math.PI);
 		boolean vBounds = Math.abs(vAngle - pitch) < vFov;
 		
-		PlayerLocation farCorner = new PlayerLocation(x + 10, y, z, 0, 0);
-		PlayerLocation adjusted = new PlayerLocation(loc.x, y, loc.z, 0, 0);
-		double a = farCorner.getDistance(adjusted);
-		double b = farCorner.getDistance(this);
-		double c = adjusted.getDistance(this);
-		double cosA = (-(a * a) + (b * b) + (c * c)) / (2 * a * c);
-		double hRads = Math.acos(cosA);
-		double hAngle = hRads * (180 / Math.PI);
-		double realYaw = (yaw + 90) % 360;
-		if(realYaw < 0) realYaw += 360.0;
-		if(hAngle < 0) hAngle += 360.0;
-		System.out.println(hAngle + " : " + realYaw + " : " + yaw);
-		boolean hBounds = Math.abs(hAngle - realYaw) < hFov;
+		double xz = Math.cos(Math.toRadians(pitch));
+		double vX = (-xz * Math.sin(Math.toRadians(yaw)));
+		double vZ = (xz * Math.cos(Math.toRadians(yaw)));
+		Vector vec1 = new Vector(vX, vZ);
+		Vector vec2 = new Vector(other.x - x, other.z - z);
+		double hAngle = vec1.angle(vec2);
+		boolean hBounds = hAngle < hFov;
 		
 		return vBounds && hBounds;
 	}
+
 	
 	public double getDistance(PlayerLocation loc) {
-		int dx = x - loc.x;
-		int dy = y - loc.y;
-		int dz = z - loc.z;
+		double dx = x - loc.x;
+		double dy = y - loc.y;
+		double dz = z - loc.z;
 		return Math.sqrt(dx * dx + dy * dy + dz * dz);
 	}
 	
-	public static void setFov(double vertFov, double horFov) {
-		vertFov = vFov;
-		horFov = hFov;
+	public class Vector {
+
+		private double x;
+		private double z;
+		
+		public Vector(double x, double z) {
+			this.x = x;
+			this.z = z;
+		}
+
+		public double angle(Vector other) {
+			double dot = dot(other) / (length() * other.length());
+			return Math.acos(dot) * (180 / Math.PI);
+		}
+		
+		public double dot(Vector other) {
+			return x * other.x + z * other.z;
+		}
+		
+		public double length() {
+			return Math.sqrt((x * x) + (z * z));
+		}
 	}
 }
