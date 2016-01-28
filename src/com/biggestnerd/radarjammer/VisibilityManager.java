@@ -59,7 +59,7 @@ public class VisibilityManager implements Listener, Runnable{
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
-		lastLocations.put(player, new PlayerLocation(player.getLocation(), player.getUniqueId()));
+		lastLocations.put(player, new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
 		visibilityMap.put(player.getUniqueId(), new ConcurrentHashMap<Boolean, UUID>());
 		currentVisibility.put(player.getUniqueId(), new HashSet<UUID>());
 	}
@@ -75,7 +75,7 @@ public class VisibilityManager implements Listener, Runnable{
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent event) {
 		Player player = event.getPlayer();
-		lastLocations.put(player, new PlayerLocation(player.getLocation(), player.getUniqueId()));
+		lastLocations.put(player, new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
 	}
 	
 	class VisibilityThread extends Thread {
