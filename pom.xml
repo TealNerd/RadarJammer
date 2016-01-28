@@ -4,7 +4,7 @@
 
 	<groupId>com.biggestnerd.radarjammer</groupId>
 	<artifactId>RadarJammer</artifactId>
-	<version>1.1</version>
+	<version>1.2</version>
 	<packaging>jar</packaging>
 
 	<name>RadarJammer</name>

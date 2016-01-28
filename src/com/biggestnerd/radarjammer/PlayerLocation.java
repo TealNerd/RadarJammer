@@ -1,46 +1,42 @@
 package com.biggestnerd.radarjammer;
 
+import java.util.UUID;
+
 import org.bukkit.Location;
 
 public class PlayerLocation {
-
-	public static double vFov;
-	public static double hFov;
+	
+	private static final double degrees = 180 / Math.PI;
+	private static final double radians = Math.PI / 180;
 	
 	private double x;
 	private double y;
 	private double z;
 	private float yaw;
 	private float pitch;
+	private UUID id;
 	
-	public PlayerLocation(double x, double y, double z, float yaw, float pitch) {
+	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
 		this.yaw = yaw;
 		this.pitch = pitch;
 		if(yaw < 0) yaw += 360;
+		this.id = id;
 	}
 	
-	public PlayerLocation(Location loc) {
-		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch());
+	public PlayerLocation(Location loc, UUID id) {
+		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id);
 	}
 	
-	public boolean canSee(PlayerLocation other) {
-		PlayerLocation rightCorner = new PlayerLocation(other.x, y, other.z, 0, 0);
-		double vRads = Math.atan(rightCorner.getDistance(other) / rightCorner.getDistance(this));
-		double vAngle = vRads * (180 / Math.PI);
-		boolean vBounds = Math.abs(vAngle - pitch) < vFov;
-		
-		double xz = Math.cos(Math.toRadians(pitch));
-		double vX = (-xz * Math.sin(Math.toRadians(yaw)));
-		double vZ = (xz * Math.cos(Math.toRadians(yaw)));
-		Vector vec1 = new Vector(vX, vZ);
-		Vector vec2 = new Vector(other.x - x, other.z - z);
-		double hAngle = vec1.angle(vec2);
-		boolean hBounds = hAngle < hFov;
-		
-		return vBounds && hBounds;
+	public double getAngle(PlayerLocation other) {
+		double xz = Math.cos(pitch * radians);
+		double vX = (-xz * Math.sin(yaw * radians));
+		double vZ = (xz * Math.cos(yaw * radians));
+		Vector vec1 = new Vector(vX, vZ, -Math.sin(pitch * radians));
+		Vector vec2 = new Vector(other.x - x, other.z - z, other.y - y);
+		return vec1.angle(vec2);
 	}
 
 	
@@ -51,27 +47,40 @@ public class PlayerLocation {
 		return Math.sqrt(dx * dx + dy * dy + dz * dz);
 	}
 	
+	public boolean equals(Object other) {
+		if(!(other instanceof PlayerLocation))
+			return false;
+		PlayerLocation loc = (PlayerLocation) other;
+		return x == loc.x && y == loc.y && z == loc.z && pitch == loc.pitch && yaw == loc.yaw && id.equals(loc.id);
+	}
+	
+	public UUID getID() {
+		return id;
+	}
+	
 	public class Vector {
 
 		private double x;
 		private double z;
+		private double y;
 		
-		public Vector(double x, double z) {
+		public Vector(double x, double z, double y) {
 			this.x = x;
 			this.z = z;
+			this.y = y;
 		}
 
 		public double angle(Vector other) {
 			double dot = dot(other) / (length() * other.length());
-			return Math.acos(dot) * (180 / Math.PI);
+			return Math.acos(dot) * degrees;
 		}
 		
 		public double dot(Vector other) {
-			return x * other.x + z * other.z;
+			return x * other.x + y * other.y + z * other.z;
 		}
 		
 		public double length() {
-			return Math.sqrt((x * x) + (z * z));
+			return Math.sqrt((x * x) + (z * z) + (y * y));
 		}
 	}
 }
