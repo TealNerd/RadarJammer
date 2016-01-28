@@ -22,6 +22,7 @@ public class VisibilityManager implements Listener, Runnable{
 	private ConcurrentHashMap<Player, PlayerLocation> lastLocations;
 	private ConcurrentHashMap<UUID, ConcurrentHashMap<Boolean, UUID>> visibilityMap;
 	private ConcurrentHashMap<UUID, HashSet<UUID>> currentVisibility;
+	private HashSet<Player> onlinePlayers;
 	
 	private VisibilityThread visThread;
 	
@@ -29,10 +30,11 @@ public class VisibilityManager implements Listener, Runnable{
 		lastLocations = new ConcurrentHashMap<Player, PlayerLocation>();
 		visibilityMap = new ConcurrentHashMap<UUID, ConcurrentHashMap<Boolean, UUID>>();
 		currentVisibility = new ConcurrentHashMap<UUID, HashSet<UUID>>();
+		onlinePlayers = new HashSet<Player>();
 		this.minCheck = minCheck;
 		this.maxCheck = maxCheck;
 		this.maxFov = maxFov;
-		Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this, 0L, 2L);
+		Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this, 0L, 1L);
 		visThread = new VisibilityThread();
 		visThread.start();
 	}
@@ -40,9 +42,11 @@ public class VisibilityManager implements Listener, Runnable{
 	private void updateVisible(Player player) {
 		for(Entry<Boolean, UUID> entry : visibilityMap.get(player.getUniqueId()).entrySet()) {
 			boolean alreadyHidden = currentVisibility.get(player.getUniqueId()).contains(entry.getValue());
-			if((player.hasPermission("jammer.bypass") || entry.getKey()) && alreadyHidden) {
+			boolean shouldHide = !(player.hasPermission("jammer.bypass") || entry.getKey());
+			if(!shouldHide && alreadyHidden) {
 				player.showPlayer(Bukkit.getPlayer(entry.getValue()));
-			} else if(!alreadyHidden) {
+				currentVisibility.get(player.getUniqueId()).remove(entry.getValue());
+			} else if(shouldHide && !alreadyHidden) {
 				player.hidePlayer(Bukkit.getPlayer(entry.getValue()));
 				currentVisibility.get(player.getUniqueId()).add(entry.getValue());
 			}
@@ -51,8 +55,10 @@ public class VisibilityManager implements Listener, Runnable{
 	
 	@Override
 	public void run() {
-		for(Player player : Bukkit.getOnlinePlayers()) {
-			updateVisible(player);
+		synchronized(onlinePlayers) {
+			for(Player player : onlinePlayers) {
+				updateVisible(player);
+			}
 		}
 	}
 
@@ -62,6 +68,9 @@ public class VisibilityManager implements Listener, Runnable{
 		lastLocations.put(player, new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
 		visibilityMap.put(player.getUniqueId(), new ConcurrentHashMap<Boolean, UUID>());
 		currentVisibility.put(player.getUniqueId(), new HashSet<UUID>());
+		synchronized(onlinePlayers) {
+			onlinePlayers.add(player);
+		}
 	}
 	
 	@EventHandler
@@ -70,6 +79,9 @@ public class VisibilityManager implements Listener, Runnable{
 		lastLocations.remove(player);
 		visibilityMap.remove(player.getUniqueId());
 		currentVisibility.remove(player.getUniqueId());
+		synchronized(onlinePlayers) {
+			onlinePlayers.remove(player);
+		}
 	}
 	
 	@EventHandler
@@ -83,6 +95,7 @@ public class VisibilityManager implements Listener, Runnable{
 		private long lastRun = 0;
 		
 		public void run() {
+			System.out.println("RadarJammer: Starting calculation thread!");
 			while(true) {
 				long time = System.currentTimeMillis() - lastRun;
 				if(time < 100L) {
