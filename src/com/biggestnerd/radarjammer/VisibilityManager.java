@@ -1,9 +1,12 @@
 package com.biggestnerd.radarjammer;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -13,81 +16,100 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import net.minelink.ctplus.CombatTagPlus;
+import net.minelink.ctplus.TagManager;
+
 public class VisibilityManager implements Listener, Runnable{
 	
 	private final int minCheck;
 	private final int maxCheck;
 	private final double maxFov;
+	private final boolean showCombatTagged;
 	
-	private ConcurrentHashMap<Player, PlayerLocation> lastLocations;
-	private ConcurrentHashMap<UUID, ConcurrentHashMap<Boolean, UUID>> visibilityMap;
-	private ConcurrentHashMap<UUID, HashSet<UUID>> currentVisibility;
-	private HashSet<Player> onlinePlayers;
+	private Set<PlayerLocation> lastLocations;
+	private ConcurrentHashMap<UUID, HashSet<UUID>> hiddenMap;
+	private ConcurrentHashMap<UUID, HashSet<UUID>> toShow;
+	private ConcurrentHashMap<UUID, HashSet<UUID>> toHide;
 	
 	private VisibilityThread visThread;
+	private TagManager ctManager;
+	private Logger log;
 	
-	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov) {
-		lastLocations = new ConcurrentHashMap<Player, PlayerLocation>();
-		visibilityMap = new ConcurrentHashMap<UUID, ConcurrentHashMap<Boolean, UUID>>();
-		currentVisibility = new ConcurrentHashMap<UUID, HashSet<UUID>>();
-		onlinePlayers = new HashSet<Player>();
+	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov, boolean showCombatTagged) {
+		log = plugin.getLogger();
+		lastLocations = Collections.synchronizedSet(new HashSet<PlayerLocation>());
+		hiddenMap = new ConcurrentHashMap<UUID,	HashSet<UUID>>();
+		toShow = new ConcurrentHashMap<UUID, HashSet<UUID>>();
+		toHide = new ConcurrentHashMap<UUID, HashSet<UUID>>();
 		this.minCheck = minCheck;
 		this.maxCheck = maxCheck;
 		this.maxFov = maxFov;
+		boolean ctEnabled = plugin.getServer().getPluginManager().isPluginEnabled("CombatTagPlus");
+		if(!ctEnabled || !showCombatTagged) {
+			this.showCombatTagged = false;
+		} else {
+			log.info("RadarJammer will show combat tagged players.");
+			this.showCombatTagged = true;
+			ctManager = ((CombatTagPlus) plugin.getServer().getPluginManager().getPlugin("CombatTagPlus")).getTagManager();
+		}
 		Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this, 0L, 1L);
 		visThread = new VisibilityThread();
 		visThread.start();
-	}
-
-	private void updateVisible(Player player) {
-		for(Entry<Boolean, UUID> entry : visibilityMap.get(player.getUniqueId()).entrySet()) {
-			boolean alreadyHidden = currentVisibility.get(player.getUniqueId()).contains(entry.getValue());
-			boolean shouldHide = !(player.hasPermission("jammer.bypass") || entry.getKey());
-			if(!shouldHide && alreadyHidden) {
-				player.showPlayer(Bukkit.getPlayer(entry.getValue()));
-				currentVisibility.get(player.getUniqueId()).remove(entry.getValue());
-			} else if(shouldHide && !alreadyHidden) {
-				player.hidePlayer(Bukkit.getPlayer(entry.getValue()));
-				currentVisibility.get(player.getUniqueId()).add(entry.getValue());
-			}
-		}
+		log.info(String.format("VisibilityManager initialized! minCheck: %d, maxCheck: %d, maxFov: %f, showCombatTagged: %b", minCheck, maxCheck, maxFov, this.showCombatTagged));
 	}
 	
 	@Override
 	public void run() {
-		synchronized(onlinePlayers) {
-			for(Player player : onlinePlayers) {
-				updateVisible(player);
+		for(Player p : Bukkit.getOnlinePlayers()) {
+			HashSet<UUID> show = toShow.get(p.getUniqueId());
+			if(show.size() != 0) {
+				for(UUID id : show) {
+					Player o = Bukkit.getPlayer(id);
+					if(o != null) {
+						log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
+						p.showPlayer(o);
+					}
+				}
 			}
+			toShow.get(p.getUniqueId()).clear();
+			if(p.hasPermission("jammer.bypass")) continue;
+			HashSet<UUID> hide = toHide.get(p.getUniqueId());
+			if(hide.size() != 0) {
+				for(UUID id : hide) {
+					Player o = Bukkit.getPlayer(id);
+					if(o != null) {
+						log.info(String.format("Hiding %s from %s", o.getName(), p.getName()));
+						if(showCombatTagged && ctManager.isTagged(id)) continue;
+						p.hidePlayer(o);
+					}
+				}
+			}
+			toHide.get(p.getUniqueId()).clear();
 		}
 	}
 
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
-		lastLocations.put(player, new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
-		visibilityMap.put(player.getUniqueId(), new ConcurrentHashMap<Boolean, UUID>());
-		currentVisibility.put(player.getUniqueId(), new HashSet<UUID>());
-		synchronized(onlinePlayers) {
-			onlinePlayers.add(player);
-		}
+		lastLocations.add(new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
+		hiddenMap.put(player.getUniqueId(), new HashSet<UUID>());
+		toShow.put(player.getUniqueId(), new HashSet<UUID>());
+		toHide.put(player.getUniqueId(), new HashSet<UUID>());
 	}
 	
 	@EventHandler
 	public void onPlayerLeave(PlayerQuitEvent event) {
 		Player player = event.getPlayer();
 		lastLocations.remove(player);
-		visibilityMap.remove(player.getUniqueId());
-		currentVisibility.remove(player.getUniqueId());
-		synchronized(onlinePlayers) {
-			onlinePlayers.remove(player);
-		}
+		hiddenMap.remove(player.getUniqueId());
+		toShow.remove(player.getUniqueId());
+		toHide.remove(player.getUniqueId());
 	}
 	
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent event) {
 		Player player = event.getPlayer();
-		lastLocations.put(player, new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
+		lastLocations.add(new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
 	}
 	
 	class VisibilityThread extends Thread {
@@ -95,31 +117,71 @@ public class VisibilityManager implements Listener, Runnable{
 		private long lastRun = 0;
 		
 		public void run() {
-			System.out.println("RadarJammer: Starting calculation thread!");
+			log.info("RadarJammer: Starting calculation thread!");
 			while(true) {
-				long time = System.currentTimeMillis() - lastRun;
-				if(time < 100L) {
-					try {
-						sleep(100L - time);
-					} catch (InterruptedException e) {}
-				}
-				for(PlayerLocation loc : lastLocations.values()) {
-					for(PlayerLocation other : lastLocations.values()) {
-						if(!loc.equals(other)) {
-							double dist = loc.getDistance(other);
-							if(dist > minCheck) {
-								if(dist < maxCheck) {
-									visibilityMap.get(loc.getID()).put(loc.getAngle(other) < maxFov, other.getID());
-								} else {
-									visibilityMap.get(loc.getID()).put(false, other.getID());
-								}
-							} else {
-								visibilityMap.get(loc.getID()).put(true, other.getID());
-							}
-							visibilityMap.get(loc.getID()).put(loc.getAngle(other) < maxFov, other.getID());
+				delay();
+				calculate();
+			}
+		}
+
+		private void calculate() {
+			HashMap<UUID, HashSet<UUID>> checked = new HashMap<UUID, HashSet<UUID>>();
+			HashSet<PlayerLocation> locations = new HashSet<PlayerLocation>();
+			synchronized(lastLocations) {
+				locations.addAll(lastLocations);
+			}
+			for(PlayerLocation loc : locations) {
+				UUID id = loc.getID();
+				if(!checked.containsKey(id)) checked.put(id, new HashSet<UUID>());
+				for(PlayerLocation oloc : locations) {
+					UUID oid = oloc.getID();
+					if(!checked.containsKey(oid)) checked.put(oid, new HashSet<UUID>());
+					if(checked.get(id).contains(oid) || id.equals(oid)) continue;
+					boolean hideOther;
+					boolean hidePlayer;
+					double dist = loc.getDistance(oloc);
+					if(dist > minCheck) {
+						if(dist < maxCheck) {
+							hideOther = loc.getAngle(oloc) > maxFov;
+							hidePlayer = oloc.getAngle(loc) > maxFov;
+						} else {
+							hideOther = hidePlayer = true;
+						}
+					} else {
+						hideOther = hidePlayer = false;
+					}
+					boolean hidingOther = hiddenMap.get(id).contains(oid);
+					if(hidingOther != hideOther) {
+						if(hideOther) {
+							toHide.get(id).add(oid);
+							hiddenMap.get(id).add(oid);
+						} else {
+							toShow.get(id).add(oid);
+							hiddenMap.get(id).remove(oid);
 						}
 					}
+					boolean hidingPlayer = hiddenMap.get(oid).contains(id);
+					if(hidingPlayer != hidePlayer) {
+						if(hidePlayer) {
+							toHide.get(oid).add(id);
+							hiddenMap.get(oid).add(id);
+						} else {
+							toShow.get(oid).add(id);
+							hiddenMap.get(oid).remove(id);
+						}
+					}
+					checked.get(id).add(oid);
+					checked.get(oid).add(id);
 				}
+			}
+		}
+		
+		private void delay() {
+			long time = System.currentTimeMillis() - lastRun;
+			if(time < 100L) {
+				try {
+					sleep(100L - time);
+				} catch (InterruptedException e) {e.printStackTrace();}
 			}
 		}
 	}

@@ -2,3 +2,4 @@ minCheck: 14
 maxCheck: auto
 vFov: 35.0
 hFov: 60.0
+showCombatTagged: false

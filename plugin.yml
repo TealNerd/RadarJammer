@@ -2,6 +2,7 @@ name: ${project.name}
 main: com.biggestnerd.radarjammer.RadarJammer
 version: ${project.version}
 author: biggestnerd
+softdepend: [CombatTagPlus]
 permissions:
    jammer.bypass:
       description: "Allows you to bypass the radar jammer"
