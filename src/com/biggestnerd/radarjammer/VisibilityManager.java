@@ -15,11 +15,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import net.minelink.ctplus.CombatTagPlus;
 import net.minelink.ctplus.TagManager;
 
-public class VisibilityManager implements Listener, Runnable{
+public class VisibilityManager extends BukkitRunnable implements Listener{
 	
 	private final int minCheck;
 	private final int maxCheck;
@@ -52,7 +53,7 @@ public class VisibilityManager implements Listener, Runnable{
 			this.showCombatTagged = true;
 			ctManager = ((CombatTagPlus) plugin.getServer().getPluginManager().getPlugin("CombatTagPlus")).getTagManager();
 		}
-		Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, this, 0L, 1L);
+		runTaskTimer(plugin, 0L, 0L);
 		visThread = new VisibilityThread();
 		visThread.start();
 		log.info(String.format("VisibilityManager initialized! minCheck: %d, maxCheck: %d, maxFov: %f, showCombatTagged: %b", minCheck, maxCheck, maxFov, this.showCombatTagged));
@@ -61,6 +62,7 @@ public class VisibilityManager implements Listener, Runnable{
 	@Override
 	public void run() {
 		for(Player p : Bukkit.getOnlinePlayers()) {
+			
 			HashSet<UUID> show = toShow.get(p.getUniqueId());
 			if(show.size() != 0) {
 				for(UUID id : show) {
