@@ -1,11 +1,11 @@
 package com.biggestnerd.radarjammer;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
@@ -62,8 +62,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	@Override
 	public void run() {
 		for(Player p : Bukkit.getOnlinePlayers()) {
-			
-			HashSet<UUID> show = toShow.get(p.getUniqueId());
+			HashSet<UUID> show = toShow.remove(p.getUniqueId());
+			toShow.putIfAbsent(p.getUniqueId(), new HashSet<UUID>());
 			if(show.size() != 0) {
 				for(UUID id : show) {
 					Player o = Bukkit.getPlayer(id);
@@ -73,9 +73,9 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 					}
 				}
 			}
-			toShow.get(p.getUniqueId()).clear();
 			if(p.hasPermission("jammer.bypass")) continue;
-			HashSet<UUID> hide = toHide.get(p.getUniqueId());
+			HashSet<UUID> hide = toHide.remove(p.getUniqueId());
+			toHide.putIfAbsent(p.getUniqueId(), new HashSet<UUID>());
 			if(hide.size() != 0) {
 				for(UUID id : hide) {
 					Player o = Bukkit.getPlayer(id);
@@ -86,7 +86,6 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 					}
 				}
 			}
-			toHide.get(p.getUniqueId()).clear();
 		}
 	}
 
@@ -111,21 +110,76 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent event) {
 		Player player = event.getPlayer();
-		lastLocations.add(new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
+		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId());
+		lastLocations.add(location);
+		visThread.queueLocation(location);
 	}
 	
 	class VisibilityThread extends Thread {
 		
-		private long lastRun = 0;
+		private final ConcurrentLinkedQueue<PlayerLocation> playerQueue = new ConcurrentLinkedQueue<PlayerLocation>();
 		
 		public void run() {
 			log.info("RadarJammer: Starting calculation thread!");
 			while(true) {
-				delay();
-				calculate();
+				PlayerLocation next = playerQueue.poll();
+				if(next != null) {
+					doCalculations(next);
+				}
 			}
 		}
-
+		
+		private void queueLocation(PlayerLocation location) {
+			if(location == null) return;
+			playerQueue.offer(location);
+		}
+		
+		private void doCalculations(PlayerLocation location) {
+			HashSet<PlayerLocation> locations = new HashSet<PlayerLocation>();
+			synchronized(lastLocations) {
+				locations.addAll(lastLocations);
+			}
+			UUID id = location.getID();
+			for(PlayerLocation other : locations) {
+				if(other.equals(location)) continue;
+				UUID oid = other.getID();
+				boolean hidePlayer, hideOther;
+				double dist = location.getDistance(other);
+				if(dist > minCheck) {
+					if(dist < maxCheck) {
+						hideOther = location.getAngle(other) > maxFov;
+						hidePlayer = other.getAngle(location) > maxFov;
+					} else {
+						hidePlayer = hideOther = true;
+					}
+				} else {
+					hidePlayer = hideOther = false;
+				}
+				boolean hidingOther = hiddenMap.get(id).contains(oid);
+				if(hidingOther != hideOther) {
+					if(hideOther) {
+						toHide.get(id).add(oid);
+						hiddenMap.get(id).add(oid);
+					} else {
+						toShow.get(id).add(oid);
+						hiddenMap.get(id).remove(oid);
+					}
+				}
+				boolean hidingPlayer = hiddenMap.get(oid).contains(id);
+				if(hidingPlayer != hidePlayer) {
+					if(hidePlayer) {
+						toHide.get(oid).add(id);
+						hiddenMap.get(oid).add(id);
+					} else {
+						toShow.get(oid).add(id);
+						hiddenMap.get(oid).remove(id);
+					}
+				}
+			}
+		}
+		
+		/*
+    old methods ftw
 		private void calculate() {
 			HashMap<UUID, HashSet<UUID>> checked = new HashMap<UUID, HashSet<UUID>>();
 			HashSet<PlayerLocation> locations = new HashSet<PlayerLocation>();
@@ -177,14 +231,6 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				}
 			}
 		}
-		
-		private void delay() {
-			long time = System.currentTimeMillis() - lastRun;
-			if(time < 100L) {
-				try {
-					sleep(100L - time);
-				} catch (InterruptedException e) {e.printStackTrace();}
-			}
-		}
+		*/
 	}
 }

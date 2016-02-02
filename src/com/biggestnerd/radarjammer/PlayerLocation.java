@@ -51,6 +51,7 @@ public class PlayerLocation {
 		if(!(other instanceof PlayerLocation))
 			return false;
 		PlayerLocation loc = (PlayerLocation) other;
+		if(id.equals(loc.id)) return true;
 		return x == loc.x && y == loc.y && z == loc.z && pitch == loc.pitch && yaw == loc.yaw && id.equals(loc.id);
 	}
 	
