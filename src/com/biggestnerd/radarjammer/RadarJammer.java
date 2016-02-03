@@ -33,7 +33,9 @@ public class RadarJammer extends JavaPlugin {
 		double hFov = config.getDouble("hFov", 60.0);
 		double maxFov = Math.sqrt((vFov * vFov) + (hFov * hFov));
 		
-		visManager = new VisibilityManager(this, minCheck, maxCheck, maxFov);
+		boolean showCombatTagged = config.getBoolean("showCombatTagged", false);
+		
+		visManager = new VisibilityManager(this, minCheck, maxCheck, maxFov, showCombatTagged);
 		getServer().getPluginManager().registerEvents(visManager, this);
 	}
 }
