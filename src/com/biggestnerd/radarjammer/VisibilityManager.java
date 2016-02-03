@@ -58,15 +58,27 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		visThread.start();
 		log.info(String.format("VisibilityManager initialized! minCheck: %d, maxCheck: %d, maxFov: %f, showCombatTagged: %b", minCheck, maxCheck, maxFov, this.showCombatTagged));
 	}
+
+	private long lastCheckRun = 0l;
 	
 	@Override
 	public void run() {
+		long s = System.currentTimeMillis();
+		long b = 0l;
+		long t = 0l;
+		long pl = 0l;
+		long sh = 0l;
+		long hi = 0l;
+		double aqp = 0.0d;
 		for(Player p : Bukkit.getOnlinePlayers()) {
+			b = System.currentTimeMillis();
+			pl++;
 			HashSet<UUID> show = toShow.remove(p.getUniqueId());
 			toShow.putIfAbsent(p.getUniqueId(), new HashSet<UUID>());
 			if(show.size() != 0) {
 				for(UUID id : show) {
 					Player o = Bukkit.getPlayer(id);
+					sh++;
 					if(o != null) {
 						log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
 						p.showPlayer(o);
@@ -79,6 +91,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			if(hide.size() != 0) {
 				for(UUID id : hide) {
 					Player o = Bukkit.getPlayer(id);
+					hi++;
 					if(o != null) {
 						log.info(String.format("Hiding %s from %s", o.getName(), p.getName()));
 						if(showCombatTagged && ctManager.isTagged(id)) continue;
@@ -86,6 +99,15 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 					}
 				}
 			}
+			t = System.currentTimeMillis();
+			aqp = aqp + ((double)(t-b) - aqp)/pl;
+		}
+		if ((s - lastCheckRun) > 1000l) {
+			if (pl > 0) 
+				log.info(String.format("Updated %d players in %d milliseconds, spending %.2f per player. Total %d seen updates and %d hide updates", pl, (t-s), aqp, sh, hi));
+			else
+				log.info("No players currently tracked.");
+			lastCheckRun = s;
 		}
 	}
 
@@ -126,7 +148,24 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				if(next != null) {
 					doCalculations(next);
 				}
+				if (calcRuns > 100) {
+					showAvg();
+				}
 			}
+		}
+
+		private void showAvg() {
+			if (calcRuns == 0d || calcPerPlayerRuns == 0d) {
+				log.info("RadarJammer Calculations Performance: none done.");
+			} else {
+				log.info(String.format("RadarJammer Calculations Performance: %.0f runs, %.0f players calculated for.", calcRuns, calcPerPlayerRuns));
+				log.info(String.format("    on average: %.5fms in setup, %.4fms per player per run, %.4fms per run", (calcSetupAverage / calcRuns), (calcPerPlayerAverage / calcPerPlayerRuns), (calcAverage / calcRuns)));
+			}
+			calcSetupAverage = 0d;
+			calcPerPlayerAverage = 0d;
+			calcPerPlayerRuns = 0d;
+			calcAverage =0d;
+			calcRuns = 0d;
 		}
 		
 		private void queueLocation(PlayerLocation location) {
@@ -134,14 +173,29 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			playerQueue.offer(location);
 		}
 		
+		private double calcSetupAverage = 0d;
+		private double calcPerPlayerAverage = 0d;
+		private double calcPerPlayerRuns = 0d;
+		private double calcAverage = 0d;
+		private double calcRuns = 0d;
+
 		private void doCalculations(PlayerLocation location) {
+			calcRuns ++;
+			long s_ = System.currentTimeMillis();
+			long b_ = 0l;
+			long d_ = 0l;
+			long e_ = 0l;
 			HashSet<PlayerLocation> locations = new HashSet<PlayerLocation>();
 			synchronized(lastLocations) {
 				locations.addAll(lastLocations);
 			}
 			UUID id = location.getID();
+			e_ = System.currentTimeMillis();
+			calcSetupAverage += (double) (e_ - s_);
 			for(PlayerLocation other : locations) {
 				if(other.equals(location)) continue;
+				calcPerPlayerRuns++;
+				b_ = System.currentTimeMillis();
 				UUID oid = other.getID();
 				boolean hidePlayer, hideOther;
 				double dist = location.getDistance(other);
@@ -175,62 +229,11 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 						hiddenMap.get(oid).remove(id);
 					}
 				}
+				e_ = System.currentTimeMillis();
+				calcPerPlayerAverage += (e_ - b_);
 			}
+			e_ = System.currentTimeMillis();
+			calcAverage += (e_ - s_);
 		}
-		
-		/*
-    old methods ftw
-		private void calculate() {
-			HashMap<UUID, HashSet<UUID>> checked = new HashMap<UUID, HashSet<UUID>>();
-			HashSet<PlayerLocation> locations = new HashSet<PlayerLocation>();
-			synchronized(lastLocations) {
-				locations.addAll(lastLocations);
-			}
-			for(PlayerLocation loc : locations) {
-				UUID id = loc.getID();
-				if(!checked.containsKey(id)) checked.put(id, new HashSet<UUID>());
-				for(PlayerLocation oloc : locations) {
-					UUID oid = oloc.getID();
-					if(!checked.containsKey(oid)) checked.put(oid, new HashSet<UUID>());
-					if(checked.get(id).contains(oid) || id.equals(oid)) continue;
-					boolean hideOther;
-					boolean hidePlayer;
-					double dist = loc.getDistance(oloc);
-					if(dist > minCheck) {
-						if(dist < maxCheck) {
-							hideOther = loc.getAngle(oloc) > maxFov;
-							hidePlayer = oloc.getAngle(loc) > maxFov;
-						} else {
-							hideOther = hidePlayer = true;
-						}
-					} else {
-						hideOther = hidePlayer = false;
-					}
-					boolean hidingOther = hiddenMap.get(id).contains(oid);
-					if(hidingOther != hideOther) {
-						if(hideOther) {
-							toHide.get(id).add(oid);
-							hiddenMap.get(id).add(oid);
-						} else {
-							toShow.get(id).add(oid);
-							hiddenMap.get(id).remove(oid);
-						}
-					}
-					boolean hidingPlayer = hiddenMap.get(oid).contains(id);
-					if(hidingPlayer != hidePlayer) {
-						if(hidePlayer) {
-							toHide.get(oid).add(id);
-							hiddenMap.get(oid).add(id);
-						} else {
-							toShow.get(oid).add(id);
-							hiddenMap.get(oid).remove(id);
-						}
-					}
-					checked.get(id).add(oid);
-					checked.get(oid).add(id);
-				}
-			}
-		}
-		*/
 	}
 }
