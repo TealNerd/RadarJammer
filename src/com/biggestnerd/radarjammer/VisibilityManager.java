@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
@@ -27,10 +28,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private final double maxFov;
 	private final boolean showCombatTagged;
 	
-	private Set<PlayerLocation> lastLocations;
-	private ConcurrentHashMap<UUID, HashSet<UUID>> hiddenMap;
-	private ConcurrentHashMap<UUID, HashSet<UUID>> toShow;
-	private ConcurrentHashMap<UUID, HashSet<UUID>> toHide;
+	private ConcurrentHashMap<UUID, HashSet<UUID>[]> maps;
+	private AtomicBoolean buffer;
 	
 	private VisibilityThread visThread;
 	private TagManager ctManager;
@@ -38,12 +37,11 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	
 	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov, boolean showCombatTagged) {
 		log = plugin.getLogger();
-		lastLocations = Collections.synchronizedSet(new HashSet<PlayerLocation>());
-		hiddenMap = new ConcurrentHashMap<UUID,	HashSet<UUID>>();
-		toShow = new ConcurrentHashMap<UUID, HashSet<UUID>>();
-		toHide = new ConcurrentHashMap<UUID, HashSet<UUID>>();
-		this.minCheck = minCheck;
-		this.maxCheck = maxCheck;
+		maps = new ConcurrentHashMap<UUID, HashSet<UUID>[]>();
+		buffer = new AtomicBoolean();
+
+		this.minCheck = minCheck*minCheck;
+		this.maxCheck = maxCheck*maxCheck;
 		this.maxFov = maxFov;
 		boolean ctEnabled = plugin.getServer().getPluginManager().isPluginEnabled("CombatTagPlus");
 		if(!ctEnabled || !showCombatTagged) {
@@ -53,80 +51,193 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			this.showCombatTagged = true;
 			ctManager = ((CombatTagPlus) plugin.getServer().getPluginManager().getPlugin("CombatTagPlus")).getTagManager();
 		}
-		runTaskTimer(plugin, 0L, 0L);
+		runTaskTimer(plugin, 1L, 1L);
 		visThread = new VisibilityThread();
 		visThread.start();
 		log.info(String.format("VisibilityManager initialized! minCheck: %d, maxCheck: %d, maxFov: %f, showCombatTagged: %b", minCheck, maxCheck, maxFov, this.showCombatTagged));
 	}
+
+	private long lastCheckRun = 0l;
 	
+	enum btype {
+		SHOW,
+		HIDE
+	}
+
+	public int getBuffer(btype buf) {
+		if (buffer.get()) {
+			switch(buf) {
+			case SHOW:
+				return 1;
+			case HIDE:
+				return 3;
+			}
+		} else {
+			switch(buf) {
+			case SHOW:
+				return 2;
+			case HIDE:
+				return 4;
+			}
+		}
+		return -1;
+	}
+
 	@Override
 	public void run() {
+		long s = System.currentTimeMillis();
+		long b = 0l;
+		long t = 0l;
+		long pl = 0l;
+		long sh = 0l;
+		long hi = 0l;
+		double aqp = 0.0d;
+		boolean buff = false;
+		// Flip buffers.
+		synchronized(buffer) {
+			buff = buffer.get();
+			buffer.set(!buff);
+		}
+
 		for(Player p : Bukkit.getOnlinePlayers()) {
-			HashSet<UUID> show = toShow.remove(p.getUniqueId());
-			toShow.putIfAbsent(p.getUniqueId(), new HashSet<UUID>());
-			if(show.size() != 0) {
+			b = System.currentTimeMillis();
+			pl++;
+			// now get the set of arrays. Careful to only deal with the "locked" ones
+			// based on the semaphore. In this case, "true" gives low-order buffers.
+			UUID pu = p.getUniqueId();
+			HashSet<UUID>[] buffers = maps.get(pu);
+			if (buffers == null) {
+				maps.put(pu, allocate());
+			}
+
+			HashSet<UUID> show = buffers[buff?1:2];
+			HashSet<UUID> hide = buffers[buff?3:4];
+			if(!show.isEmpty()) {
 				for(UUID id : show) {
 					Player o = Bukkit.getPlayer(id);
+					sh++;
 					if(o != null) {
 						log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
 						p.showPlayer(o);
+						if (hide.remove(id)) { // prefer to show rather then hide. In case of conflict, show wins.
+							log.info(String.format("Suppressed hide of %s from %s", o.getName(), p.getName()));
+						}
 					}
 				}
+				show.clear(); // prepare buffer for next swap.
 			}
-			if(p.hasPermission("jammer.bypass")) continue;
-			HashSet<UUID> hide = toHide.remove(p.getUniqueId());
-			toHide.putIfAbsent(p.getUniqueId(), new HashSet<UUID>());
-			if(hide.size() != 0) {
+
+			if (p.hasPermission("jammer.bypass")) continue;
+
+			if(!hide.isEmpty()) {
 				for(UUID id : hide) {
+					if(showCombatTagged && ctManager.isTagged(id)) continue;
 					Player o = Bukkit.getPlayer(id);
+					hi++;
 					if(o != null) {
 						log.info(String.format("Hiding %s from %s", o.getName(), p.getName()));
-						if(showCombatTagged && ctManager.isTagged(id)) continue;
 						p.hidePlayer(o);
 					}
 				}
+				hide.clear();
 			}
+
+			t = System.currentTimeMillis();
+			aqp = aqp + ((double)(t-b) - aqp)/pl;
+		}
+		t = System.currentTimeMillis();
+		if ((s - lastCheckRun) > 1000l) {
+			if (pl > 0) 
+				log.info(String.format("Updated %d players in %d milliseconds, spending %.2f per player. Total %d seen updates and %d hide updates", pl, (t-s), aqp, sh, hi));
+			else
+				log.info("No players currently tracked.");
+			lastCheckRun = s;
 		}
 	}
 
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
-		lastLocations.add(new PlayerLocation(player.getEyeLocation(), player.getUniqueId()));
-		hiddenMap.put(player.getUniqueId(), new HashSet<UUID>());
-		toShow.put(player.getUniqueId(), new HashSet<UUID>());
-		toHide.put(player.getUniqueId(), new HashSet<UUID>());
+		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId());
+		visThread.queueLocation(location);
+		HashSet<UUID>[] buffers = maps.get(player.getUniqueId());
+		if (buffers == null) {
+			maps.put(player.getUniqueId(), allocate());
+		} else {
+			for (HashSet<UUID> buffer : buffers){
+				buffer.clear();
+			}
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private HashSet<UUID>[] allocate() {
+		return (HashSet<UUID>[]) new HashSet[] { new HashSet<UUID>(), new HashSet<UUID>(), 
+			new HashSet<UUID>(), new HashSet<UUID>(), new HashSet<UUID>() };
 	}
 	
 	@EventHandler
 	public void onPlayerLeave(PlayerQuitEvent event) {
-		Player player = event.getPlayer();
-		lastLocations.remove(player);
-		hiddenMap.remove(player.getUniqueId());
-		toShow.remove(player.getUniqueId());
-		toHide.remove(player.getUniqueId());
+		//Player player = event.getPlayer();
+		//lastLocations.remove(player);
+		// TODO: While allocation is expensive, keeping allocations forever is bad for long
+		// running servers w/ constrained memory.
+		// To strike a balance, add a LIFO queue here and schedule a task to periodically release
+		// data from old players who haven't returned.
 	}
 	
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent event) {
 		Player player = event.getPlayer();
 		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId());
-		lastLocations.add(location);
 		visThread.queueLocation(location);
 	}
 	
 	class VisibilityThread extends Thread {
 		
 		private final ConcurrentLinkedQueue<PlayerLocation> playerQueue = new ConcurrentLinkedQueue<PlayerLocation>();
+		private final Set<PlayerLocation> lastLocations = Collections.synchronizedSet(new HashSet<PlayerLocation>());
+		private final Set<PlayerLocation> recalc = Collections.synchronizedSet(new HashSet<PlayerLocation>());
 		
 		public void run() {
 			log.info("RadarJammer: Starting calculation thread!");
+			long lastLoopStart = 0l;
 			while(true) {
-				PlayerLocation next = playerQueue.poll();
-				if(next != null) {
-					doCalculations(next);
+				// TODO:
+				// Probably a good idea to bake in some throttling; LinkedQueues are totally unbounded
+				// so if the rate at which players move >>> the rate of processing, we're screwed.
+				lastLoopStart = System.currentTimeMillis();
+				while (System.currentTimeMillis() - lastLoopStart < 50l) {
+					PlayerLocation next = playerQueue.poll();
+					if (next != null) {
+						lastLocations.add(next);
+						recalc.add(next);
+					}
+					try {
+						sleep(0l);
+					}catch(InterruptedException ie) {}
+				}
+				if(!recalc.isEmpty()) {
+					doCalculations();
+				}
+				if (calcRuns > 20) {
+					showAvg();
 				}
 			}
+		}
+
+		private void showAvg() {
+			if (calcRuns == 0d || calcPerPlayerRuns == 0d) {
+				log.info("RadarJammer Calculations Performance: none done.");
+			} else {
+				log.info(String.format("RadarJammer Calculations Performance: %.0f runs, %.0f players calculated for.", calcRuns, calcPerPlayerRuns));
+				log.info(String.format("    on average: %.5fms in setup, %.4fms per player per run, %.4fms per run", (calcSetupAverage / calcRuns), (calcPerPlayerAverage / calcPerPlayerRuns), (calcAverage / calcRuns)));
+			}
+			calcSetupAverage = 0d;
+			calcPerPlayerAverage = 0d;
+			calcPerPlayerRuns = 0d;
+			calcAverage =0d;
+			calcRuns = 0d;
 		}
 		
 		private void queueLocation(PlayerLocation location) {
@@ -134,17 +245,36 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			playerQueue.offer(location);
 		}
 		
-		private void doCalculations(PlayerLocation location) {
-			HashSet<PlayerLocation> locations = new HashSet<PlayerLocation>();
-			synchronized(lastLocations) {
-				locations.addAll(lastLocations);
+		private double calcSetupAverage = 0d;
+		private double calcPerPlayerAverage = 0d;
+		private double calcPerPlayerRuns = 0d;
+		private double calcAverage = 0d;
+		private double calcRuns = 0d;
+
+		private void doCalculations() {
+			for (PlayerLocation pl : recalc) {
+				doCalculations(pl);
 			}
+			recalc.clear();
+		}
+
+		private void doCalculations(PlayerLocation location) {
+			if (location == null) return;
+			calcRuns ++;
+			long s_ = System.currentTimeMillis();
+			long b_ = 0l;
+			long d_ = 0l;
+			long e_ = 0l;
 			UUID id = location.getID();
-			for(PlayerLocation other : locations) {
-				if(other.equals(location)) continue;
+			e_ = System.currentTimeMillis();
+			calcSetupAverage += (double) (e_ - s_);
+			for(PlayerLocation other : lastLocations) {
 				UUID oid = other.getID();
+				if (id.equals(oid)) continue;
+				calcPerPlayerRuns++;
+				b_ = System.currentTimeMillis();
 				boolean hidePlayer, hideOther;
-				double dist = location.getDistance(other);
+				double dist = location.getSquaredDistance(other);
 				if(dist > minCheck) {
 					if(dist < maxCheck) {
 						hideOther = location.getAngle(other) > maxFov;
@@ -155,82 +285,38 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				} else {
 					hidePlayer = hideOther = false;
 				}
-				boolean hidingOther = hiddenMap.get(id).contains(oid);
+				HashSet<UUID>[] buffers = maps.get(id);
+				if (buffers == null) return;
+
+				boolean hidingOther = buffers[0].contains(oid);
 				if(hidingOther != hideOther) {
 					if(hideOther) {
-						toHide.get(id).add(oid);
-						hiddenMap.get(id).add(oid);
+						buffers[getBuffer(btype.HIDE)].add(oid);
+						buffers[0].add(oid);
 					} else {
-						toShow.get(id).add(oid);
-						hiddenMap.get(id).remove(oid);
+						buffers[getBuffer(btype.SHOW)].add(oid);
+						buffers[0].remove(oid);
 					}
 				}
-				boolean hidingPlayer = hiddenMap.get(oid).contains(id);
+
+				buffers = maps.get(oid);
+				if (buffers == null) return;
+
+				boolean hidingPlayer = buffers[0].contains(id);
 				if(hidingPlayer != hidePlayer) {
 					if(hidePlayer) {
-						toHide.get(oid).add(id);
-						hiddenMap.get(oid).add(id);
+						buffers[getBuffer(btype.HIDE)].add(id);
+						buffers[0].add(id);
 					} else {
-						toShow.get(oid).add(id);
-						hiddenMap.get(oid).remove(id);
+						buffers[getBuffer(btype.SHOW)].add(id);
+						buffers[0].remove(id);
 					}
 				}
+				e_ = System.currentTimeMillis();
+				calcPerPlayerAverage += (e_ - b_);
 			}
+			e_ = System.currentTimeMillis();
+			calcAverage += (e_ - s_);
 		}
-		
-		/*
-    old methods ftw
-		private void calculate() {
-			HashMap<UUID, HashSet<UUID>> checked = new HashMap<UUID, HashSet<UUID>>();
-			HashSet<PlayerLocation> locations = new HashSet<PlayerLocation>();
-			synchronized(lastLocations) {
-				locations.addAll(lastLocations);
-			}
-			for(PlayerLocation loc : locations) {
-				UUID id = loc.getID();
-				if(!checked.containsKey(id)) checked.put(id, new HashSet<UUID>());
-				for(PlayerLocation oloc : locations) {
-					UUID oid = oloc.getID();
-					if(!checked.containsKey(oid)) checked.put(oid, new HashSet<UUID>());
-					if(checked.get(id).contains(oid) || id.equals(oid)) continue;
-					boolean hideOther;
-					boolean hidePlayer;
-					double dist = loc.getDistance(oloc);
-					if(dist > minCheck) {
-						if(dist < maxCheck) {
-							hideOther = loc.getAngle(oloc) > maxFov;
-							hidePlayer = oloc.getAngle(loc) > maxFov;
-						} else {
-							hideOther = hidePlayer = true;
-						}
-					} else {
-						hideOther = hidePlayer = false;
-					}
-					boolean hidingOther = hiddenMap.get(id).contains(oid);
-					if(hidingOther != hideOther) {
-						if(hideOther) {
-							toHide.get(id).add(oid);
-							hiddenMap.get(id).add(oid);
-						} else {
-							toShow.get(id).add(oid);
-							hiddenMap.get(id).remove(oid);
-						}
-					}
-					boolean hidingPlayer = hiddenMap.get(oid).contains(id);
-					if(hidingPlayer != hidePlayer) {
-						if(hidePlayer) {
-							toHide.get(oid).add(id);
-							hiddenMap.get(oid).add(id);
-						} else {
-							toShow.get(oid).add(id);
-							hiddenMap.get(oid).remove(id);
-						}
-					}
-					checked.get(id).add(oid);
-					checked.get(oid).add(id);
-				}
-			}
-		}
-		*/
 	}
 }
