@@ -42,8 +42,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		hiddenMap = new ConcurrentHashMap<UUID,	HashSet<UUID>>();
 		toShow = new ConcurrentHashMap<UUID, HashSet<UUID>>();
 		toHide = new ConcurrentHashMap<UUID, HashSet<UUID>>();
-		this.minCheck = minCheck;
-		this.maxCheck = maxCheck;
+		this.minCheck = minCheck*minCheck;
+		this.maxCheck = maxCheck*maxCheck;
 		this.maxFov = maxFov;
 		boolean ctEnabled = plugin.getServer().getPluginManager().isPluginEnabled("CombatTagPlus");
 		if(!ctEnabled || !showCombatTagged) {
@@ -198,7 +198,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				b_ = System.currentTimeMillis();
 				UUID oid = other.getID();
 				boolean hidePlayer, hideOther;
-				double dist = location.getDistance(other);
+				double dist = location.getSquaredDistance(other);
 				if(dist > minCheck) {
 					if(dist < maxCheck) {
 						hideOther = location.getAngle(other) > maxFov;

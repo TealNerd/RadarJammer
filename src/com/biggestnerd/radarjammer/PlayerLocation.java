@@ -39,6 +39,12 @@ public class PlayerLocation {
 		return vec1.angle(vec2);
 	}
 
+	public double getSquaredDistance(PlayerLocation loc){
+		double dx = x - loc.x;
+		double dy = y - loc.y;
+		double dz = z - loc.z;
+		return dx * dx + dy * dy + dz * dz;
+	}
 	
 	public double getDistance(PlayerLocation loc) {
 		double dx = x - loc.x;
