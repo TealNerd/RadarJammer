@@ -53,12 +53,18 @@ public class PlayerLocation {
 		return Math.sqrt(dx * dx + dy * dy + dz * dz);
 	}
 	
+	@Override
 	public boolean equals(Object other) {
 		if(!(other instanceof PlayerLocation))
 			return false;
 		PlayerLocation loc = (PlayerLocation) other;
 		if(id.equals(loc.id)) return true;
 		return x == loc.x && y == loc.y && z == loc.z && pitch == loc.pitch && yaw == loc.yaw && id.equals(loc.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return id.hashCode();
 	}
 	
 	public UUID getID() {
