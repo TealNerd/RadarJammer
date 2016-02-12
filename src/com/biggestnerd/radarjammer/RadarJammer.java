@@ -3,6 +3,8 @@ package com.biggestnerd.radarjammer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.comphenix.protocol.ProtocolLibrary;
+
 public class RadarJammer extends JavaPlugin {
 	
 	private VisibilityManager visManager;
@@ -11,7 +13,8 @@ public class RadarJammer extends JavaPlugin {
 	public void onEnable() {
 		saveDefaultConfig();
 		reloadConfig();
-		registerVisibilityManager();
+		initializeVisibilityManager();
+		ProtocolLibrary.getProtocolManager().addPacketListener(new PlayerListManager(this));
 	}
 	
 	@Override
@@ -19,7 +22,7 @@ public class RadarJammer extends JavaPlugin {
 		getLogger().info("RadarJammer shutting down!");
 	}
 	
-	private void registerVisibilityManager() {
+	private void initializeVisibilityManager() {
 		FileConfiguration config = getConfig();
 		int minCheck = config.getInt("minCheck", 14);
 		String maxCheckString = config.getString("maxCheck", "auto");
@@ -33,9 +36,13 @@ public class RadarJammer extends JavaPlugin {
 		double hFov = config.getDouble("hFov", 60.0);
 		double maxFov = Math.sqrt((vFov * vFov) + (hFov * hFov));
 		
-		boolean showCombatTagged = config.getBoolean("showCombatTagged", false);
+		boolean showCombatTagged = config.getBoolean("showCombatTagged", true);
 		
-		visManager = new VisibilityManager(this, minCheck, maxCheck, maxFov, showCombatTagged);
+		boolean trueInvis = config.getBoolean("trueInvis", true);
+		
+		boolean timing = config.getBoolean("timing", false);
+		
+		visManager = new VisibilityManager(this, minCheck, maxCheck, maxFov, showCombatTagged, trueInvis, timing);
 		getServer().getPluginManager().registerEvents(visManager, this);
 	}
 }

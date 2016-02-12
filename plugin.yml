@@ -2,6 +2,7 @@ name: ${project.name}
 main: com.biggestnerd.radarjammer.RadarJammer
 version: ${project.version}
 author: biggestnerd
+depend: [ProtocolLib]
 softdepend: [CombatTagPlus]
 permissions:
    jammer.bypass:

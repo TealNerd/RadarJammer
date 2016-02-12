@@ -10,12 +10,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import net.minelink.ctplus.CombatTagPlus;
@@ -27,15 +30,17 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private final int maxCheck;
 	private final double maxFov;
 	private final boolean showCombatTagged;
+	private boolean trueInvis;
+	private boolean timing;
 	
 	private ConcurrentHashMap<UUID, HashSet<UUID>[]> maps;
 	private AtomicBoolean buffer;
 	
-	private VisibilityThread visThread;
+	private CalculationThread calcThread;
 	private TagManager ctManager;
 	private Logger log;
 	
-	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov, boolean showCombatTagged) {
+	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov, boolean showCombatTagged, boolean trueInvis, boolean timing) {
 		log = plugin.getLogger();
 		maps = new ConcurrentHashMap<UUID, HashSet<UUID>[]>();
 		buffer = new AtomicBoolean();
@@ -51,9 +56,11 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			this.showCombatTagged = true;
 			ctManager = ((CombatTagPlus) plugin.getServer().getPluginManager().getPlugin("CombatTagPlus")).getTagManager();
 		}
+		this.trueInvis = trueInvis;
+		this.timing = timing;
 		runTaskTimer(plugin, 1L, 1L);
-		visThread = new VisibilityThread();
-		visThread.start();
+		calcThread = new CalculationThread();
+		calcThread.start();
 		log.info(String.format("VisibilityManager initialized! minCheck: %d, maxCheck: %d, maxFov: %f, showCombatTagged: %b", minCheck, maxCheck, maxFov, this.showCombatTagged));
 	}
 
@@ -100,8 +107,10 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		}
 
 		for(Player p : Bukkit.getOnlinePlayers()) {
-			b = System.currentTimeMillis();
-			pl++;
+			if(timing) {
+				b = System.currentTimeMillis();
+				pl++;
+			}
 			// now get the set of arrays. Careful to only deal with the "locked" ones
 			// based on the semaphore. In this case, "true" gives low-order buffers.
 			UUID pu = p.getUniqueId();
@@ -115,7 +124,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			if(!show.isEmpty()) {
 				for(UUID id : show) {
 					Player o = Bukkit.getPlayer(id);
-					sh++;
+					if(timing) sh++;
 					if(o != null) {
 						log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
 						p.showPlayer(o);
@@ -131,9 +140,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 
 			if(!hide.isEmpty()) {
 				for(UUID id : hide) {
-					if(showCombatTagged && ctManager.isTagged(id)) continue;
 					Player o = Bukkit.getPlayer(id);
-					hi++;
+					if(timing) hi++;
 					if(o != null) {
 						log.info(String.format("Hiding %s from %s", o.getName(), p.getName()));
 						p.hidePlayer(o);
@@ -142,11 +150,12 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				hide.clear();
 			}
 
-			t = System.currentTimeMillis();
-			aqp = aqp + ((double)(t-b) - aqp)/pl;
+			if(timing) {
+				t = System.currentTimeMillis();
+				aqp = aqp + ((double)(t-b) - aqp)/pl;
+			}
 		}
-		t = System.currentTimeMillis();
-		if ((s - lastCheckRun) > 1000l) {
+		if ((s - lastCheckRun) > 1000l && timing) {
 			if (pl > 0) 
 				log.info(String.format("Updated %d players in %d milliseconds, spending %.2f per player. Total %d seen updates and %d hide updates", pl, (t-s), aqp, sh, hi));
 			else
@@ -158,8 +167,16 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
-		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId());
-		visThread.queueLocation(location);
+		boolean invis = player.hasPotionEffect(PotionEffectType.INVISIBILITY);
+		if(trueInvis) {
+			ItemStack inHand = player.getItemInHand();
+			ItemStack[] armor = player.getInventory().getArmorContents();
+			boolean hasArmor = false;
+			for(ItemStack item : armor) if(item != null && item.getType() != Material.AIR) hasArmor = true;
+			invis = invis && (inHand == null || inHand.getType() == Material.AIR) && hasArmor;
+		}
+		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId(), invis);
+		calcThread.queueLocation(location);
 		HashSet<UUID>[] buffers = maps.get(player.getUniqueId());
 		if (buffers == null) {
 			maps.put(player.getUniqueId(), allocate());
@@ -189,11 +206,19 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent event) {
 		Player player = event.getPlayer();
-		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId());
-		visThread.queueLocation(location);
+		boolean invis = player.hasPotionEffect(PotionEffectType.INVISIBILITY);
+		if(trueInvis) {
+			ItemStack inHand = player.getItemInHand();
+			ItemStack[] armor = player.getInventory().getArmorContents();
+			boolean hasArmor = false;
+			for(ItemStack item : armor) if(item != null && item.getType() != Material.AIR) hasArmor = true;
+			invis = invis && (inHand == null || inHand.getType() == Material.AIR) && hasArmor;
+		}
+		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId(), invis);
+		calcThread.queueLocation(location);
 	}
 	
-	class VisibilityThread extends Thread {
+	class CalculationThread extends Thread {
 		
 		private final ConcurrentLinkedQueue<PlayerLocation> playerQueue = new ConcurrentLinkedQueue<PlayerLocation>();
 		private final Set<PlayerLocation> lastLocations = Collections.synchronizedSet(new HashSet<PlayerLocation>());
@@ -227,6 +252,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		}
 
 		private void showAvg() {
+			if(!timing) return;
 			if (calcRuns == 0d || calcPerPlayerRuns == 0d) {
 				log.info("RadarJammer Calculations Performance: none done.");
 			} else {
@@ -250,6 +276,9 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		private double calcPerPlayerRuns = 0d;
 		private double calcAverage = 0d;
 		private double calcRuns = 0d;
+		long s_ = 0L;
+		long b_ = 0l;
+		long e_ = 0l;
 
 		private void doCalculations() {
 			for (PlayerLocation pl : recalc) {
@@ -260,31 +289,35 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 
 		private void doCalculations(PlayerLocation location) {
 			if (location == null) return;
-			calcRuns ++;
-			long s_ = System.currentTimeMillis();
-			long b_ = 0l;
-			long d_ = 0l;
-			long e_ = 0l;
+			if(timing) {
+				calcRuns ++;
+				s_ = System.currentTimeMillis();
+				e_ = System.currentTimeMillis();
+				calcSetupAverage += (double) (e_ - s_);
+			}
 			UUID id = location.getID();
-			e_ = System.currentTimeMillis();
-			calcSetupAverage += (double) (e_ - s_);
 			for(PlayerLocation other : lastLocations) {
 				UUID oid = other.getID();
 				if (id.equals(oid)) continue;
-				calcPerPlayerRuns++;
-				b_ = System.currentTimeMillis();
-				boolean hidePlayer, hideOther;
+				if(timing) {
+					calcPerPlayerRuns++;
+					b_ = System.currentTimeMillis();
+				}
+				boolean hidePlayer = shouldHide(other, location); 
+				boolean hideOther = shouldHide(location, other);
+				/*
 				double dist = location.getSquaredDistance(other);
 				if(dist > minCheck) {
 					if(dist < maxCheck) {
-						hideOther = location.getAngle(other) > maxFov;
-						hidePlayer = other.getAngle(location) > maxFov;
+						hideOther = location.getAngle(other) > maxFov || other.isInvis();
+						hidePlayer = other.getAngle(location) > maxFov || location.isInvis();
 					} else {
 						hidePlayer = hideOther = true;
 					}
 				} else {
 					hidePlayer = hideOther = false;
 				}
+				*/
 				HashSet<UUID>[] buffers = maps.get(id);
 				if (buffers == null) return;
 
@@ -312,11 +345,30 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 						buffers[0].remove(id);
 					}
 				}
-				e_ = System.currentTimeMillis();
-				calcPerPlayerAverage += (e_ - b_);
+				if(timing) {
+					e_ = System.currentTimeMillis();
+					calcPerPlayerAverage += (e_ - b_);
+				}
 			}
-			e_ = System.currentTimeMillis();
-			calcAverage += (e_ - s_);
+			if(timing) {
+				e_ = System.currentTimeMillis();
+				calcAverage += (e_ - s_);
+			}
+		}
+		
+		private boolean shouldHide(PlayerLocation loc, PlayerLocation other) {
+			double dist = loc.getDistance(other);
+			if(ctManager.isTagged(loc.getID())) return false;
+			if(loc.isBlind() || other.isInvis()) return true;
+			if(dist > minCheck) {
+				if(dist < maxCheck) {
+					return loc.getAngle(other) > maxFov;
+				} else {
+					return true;
+				}
+			} else {
+				return false;
+			}
 		}
 	}
 }

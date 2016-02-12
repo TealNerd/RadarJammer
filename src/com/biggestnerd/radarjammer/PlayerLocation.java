@@ -8,15 +8,16 @@ public class PlayerLocation {
 	
 	private static final double degrees = 180 / Math.PI;
 	private static final double radians = Math.PI / 180;
-	
 	private double x;
 	private double y;
 	private double z;
 	private float yaw;
 	private float pitch;
 	private UUID id;
+	private boolean blind = false;
+	private boolean invis;
 	
-	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id) {
+	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
@@ -24,10 +25,11 @@ public class PlayerLocation {
 		this.pitch = pitch;
 		if(yaw < 0) yaw += 360;
 		this.id = id;
+		this.invis = invis;
 	}
 	
-	public PlayerLocation(Location loc, UUID id) {
-		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id);
+	public PlayerLocation(Location loc, UUID id, boolean invis) {
+		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis);
 	}
 	
 	public double getAngle(PlayerLocation other) {
@@ -69,6 +71,18 @@ public class PlayerLocation {
 	
 	public UUID getID() {
 		return id;
+	}
+	
+	public boolean isBlind() {
+		return blind;
+	}
+	
+	public void setBlind(boolean blind) {
+		this.blind = blind;
+	}
+	
+	public boolean isInvis() {
+		return invis;
 	}
 	
 	public class Vector {

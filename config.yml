@@ -2,4 +2,10 @@ minCheck: 14
 maxCheck: auto
 vFov: 35.0
 hFov: 60.0
-showCombatTagged: false
+#Will show combat tagged players, this is nice if you're hiding invis players
+showCombatTagged: true
+#If enabled this will hide invis players even if they have armor on or an item in hand
+#if disabled it will hide invis players with no item in hand and no armor on
+trueInvis: true
+#calculate and show timing data (really just for dev purposes)
+timing: false
