@@ -2,6 +2,7 @@ package com.biggestnerd.radarjammer;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,31 +19,52 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import com.comphenix.protocol.PacketType;
+import com.comphenix.protocol.ProtocolLibrary;
+import com.comphenix.protocol.events.ListenerPriority;
+import com.comphenix.protocol.events.PacketAdapter;
+import com.comphenix.protocol.events.PacketContainer;
+import com.comphenix.protocol.events.PacketEvent;
+
+import net.md_5.bungee.api.ChatColor;
 import net.minelink.ctplus.CombatTagPlus;
 import net.minelink.ctplus.TagManager;
 
 public class VisibilityManager extends BukkitRunnable implements Listener{
 	
-	private final int minCheck;
-	private final int maxCheck;
-	private final double maxFov;
-	private final boolean showCombatTagged;
+	private int minCheck;
+	private int maxCheck;
+	private double maxFov;
+	private boolean showCombatTagged;
 	private boolean trueInvis;
 	private boolean timing;
+	private float maxSpin;
+	private long flagTime;
+	private int maxFlags;
+	private int blindDuration;
 	
 	private ConcurrentHashMap<UUID, HashSet<UUID>[]> maps;
+	private ConcurrentHashMap<UUID, Long> blinded;
+	private ConcurrentLinkedQueue<UUID> blindQueue;
 	private AtomicBoolean buffer;
 	
 	private CalculationThread calcThread;
+	private AntiBypassThread antiBypassThread;
 	private TagManager ctManager;
 	private Logger log;
+	private RadarJammer plugin;
 	
-	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov, boolean showCombatTagged, boolean trueInvis, boolean timing) {
+	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov, boolean showCombatTagged, boolean trueInvis, 
+							 boolean timing, float maxSpin, long flagTime, int maxFlags, int blindDuration) {
+		this.plugin = plugin;
 		log = plugin.getLogger();
 		maps = new ConcurrentHashMap<UUID, HashSet<UUID>[]>();
+		blinded = new ConcurrentHashMap<UUID, Long>();
+		blindQueue = new ConcurrentLinkedQueue<UUID>();
 		buffer = new AtomicBoolean();
 
 		this.minCheck = minCheck*minCheck;
@@ -58,9 +80,15 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		}
 		this.trueInvis = trueInvis;
 		this.timing = timing;
+		this.maxSpin = maxSpin;
+		this.flagTime = flagTime;
+		this.maxFlags = maxFlags;
+		this.blindDuration = blindDuration;
 		runTaskTimer(plugin, 1L, 1L);
 		calcThread = new CalculationThread();
 		calcThread.start();
+		antiBypassThread = new AntiBypassThread();
+		antiBypassThread.start();
 		log.info(String.format("VisibilityManager initialized! minCheck: %d, maxCheck: %d, maxFov: %f, showCombatTagged: %b", minCheck, maxCheck, maxFov, this.showCombatTagged));
 	}
 
@@ -111,6 +139,15 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				b = System.currentTimeMillis();
 				pl++;
 			}
+			
+			if(blindQueue.remove(p.getUniqueId())) {
+				int amplifyMin = blindDuration + (int) antiBypassThread.angleChange.get(p.getUniqueId())[3];
+				int amplifyTicks = amplifyMin * 7200;
+				p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, amplifyTicks, 1));
+				p.addPotionEffect(new PotionEffect(PotionEffectType.CONFUSION, amplifyTicks, 1));
+				p.sendMessage(ChatColor.DARK_RED + "You're spinning too fast and dizziness sets in. You are temporarily blinded for " + amplifyMin + " minutes!");
+			}
+			
 			// now get the set of arrays. Careful to only deal with the "locked" ones
 			// based on the semaphore. In this case, "true" gives low-order buffers.
 			UUID pu = p.getUniqueId();
@@ -167,15 +204,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
-		boolean invis = player.hasPotionEffect(PotionEffectType.INVISIBILITY);
-		if(trueInvis) {
-			ItemStack inHand = player.getItemInHand();
-			ItemStack[] armor = player.getInventory().getArmorContents();
-			boolean hasArmor = false;
-			for(ItemStack item : armor) if(item != null && item.getType() != Material.AIR) hasArmor = true;
-			invis = invis && (inHand == null || inHand.getType() == Material.AIR) && hasArmor;
-		}
-		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId(), invis);
+		PlayerLocation location = getLocation(player);
 		calcThread.queueLocation(location);
 		HashSet<UUID>[] buffers = maps.get(player.getUniqueId());
 		if (buffers == null) {
@@ -206,6 +235,11 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	@EventHandler
 	public void onPlayerMove(PlayerMoveEvent event) {
 		Player player = event.getPlayer();
+		PlayerLocation location = getLocation(player);
+		calcThread.queueLocation(location);
+	}
+	
+	private PlayerLocation getLocation(Player player) {
 		boolean invis = player.hasPotionEffect(PotionEffectType.INVISIBILITY);
 		if(trueInvis) {
 			ItemStack inHand = player.getItemInHand();
@@ -214,8 +248,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			for(ItemStack item : armor) if(item != null && item.getType() != Material.AIR) hasArmor = true;
 			invis = invis && (inHand == null || inHand.getType() == Material.AIR) && hasArmor;
 		}
-		PlayerLocation location = new PlayerLocation(player.getEyeLocation(), player.getUniqueId(), invis);
-		calcThread.queueLocation(location);
+		return new PlayerLocation(player.getEyeLocation(), player.getUniqueId(), invis);
 	}
 	
 	class CalculationThread extends Thread {
@@ -359,7 +392,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		private boolean shouldHide(PlayerLocation loc, PlayerLocation other) {
 			double dist = loc.getDistance(other);
 			if(ctManager.isTagged(loc.getID())) return false;
-			if(loc.isBlind() || other.isInvis()) return true;
+			boolean blind = blinded.containsKey(loc.getID());
+			if(blind || other.isInvis()) return true;
 			if(dist > minCheck) {
 				if(dist < maxCheck) {
 					return loc.getAngle(other) > maxFov;
@@ -368,6 +402,70 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				}
 			} else {
 				return false;
+			}
+		}
+	}
+	
+	class AntiBypassThread extends Thread {
+		
+		private ConcurrentHashMap<UUID, float[]> angleChange = new ConcurrentHashMap<UUID, float[]>();
+		
+		public AntiBypassThread() {
+			ProtocolLibrary.getProtocolManager().addPacketListener(new PacketAdapter(plugin, ListenerPriority.NORMAL, PacketType.Play.Client.LOOK, PacketType.Play.Client.POSITION_LOOK) {
+				@Override
+				public void onPacketReceiving(PacketEvent event) {
+					PacketContainer packet = event.getPacket();
+					float yaw = packet.getFloat().read(0);
+					updatePlayer(event.getPlayer().getUniqueId(), yaw);
+				}
+			});
+		}
+		
+		@Override
+		public void run() {
+			long lastLoopStart = 0l;
+			long lastFlagCheck = 0l;
+			while(true) {
+				if(System.currentTimeMillis() - lastFlagCheck > flagTime) {
+					lastFlagCheck = System.currentTimeMillis();
+					for(Entry<UUID, float[]> entry : angleChange.entrySet()) {
+						if(entry.getValue()[2] >= maxFlags) {
+							angleChange.get(entry.getKey())[3] += 1;
+							UUID id = entry.getKey();
+							log.info(id + " has reached the threshold for bypass flags, blinding them for a few minutes.");
+							blinded.put(id, System.currentTimeMillis());
+							entry.getValue()[2] = 0;
+						}
+					}
+				}
+				//Every second check angle change
+				if(System.currentTimeMillis() - lastLoopStart > 1000l) {
+					lastLoopStart = System.currentTimeMillis();
+					for(Entry<UUID, Long> entry : blinded.entrySet()) {
+						long blindLengthMillis = blindDuration * 60000;
+						if(System.currentTimeMillis() - entry.getValue() > blindLengthMillis) {
+							blinded.remove(entry.getKey());
+						}
+					}
+					for(Entry<UUID, float[]> entry : angleChange.entrySet()) {
+						boolean blind = entry.getValue()[0] > maxSpin;
+						entry.getValue()[0] = 0;
+						if(blind) {
+							entry.getValue()[2] += 1;
+						}
+					}
+				}
+			}
+		}
+		
+		private void updatePlayer(UUID player, float newAngle) {
+			if(!angleChange.containsKey(player)) {
+				angleChange.put(player, new float[]{0,newAngle,0,0});
+			} else {
+				float last = angleChange.get(player)[1];
+				float change = Math.abs(last - newAngle);
+				angleChange.get(player)[1] = newAngle;
+				angleChange.get(player)[0] += change;
 			}
 		}
 	}

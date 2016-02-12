@@ -7,5 +7,15 @@ showCombatTagged: true
 #If enabled this will hide invis players even if they have armor on or an item in hand
 #if disabled it will hide invis players with no item in hand and no armor on
 trueInvis: true
+#the duration of blinding in minutes
+#this is amplified by 1 minute for each offense and applies nausea and blindness for the duration
+blindDuration: 3
+#Max degree/second turning speed to flag for bypass
+#Default of 500 is pretty hard to flag even if you're spinning really fast
+maxSpin: 500
+#The maximum number of flags per time
+maxFlags: 55
+#The time in seconds between flag number checks
+flagTime: 60
 #calculate and show timing data (really just for dev purposes)
 timing: false

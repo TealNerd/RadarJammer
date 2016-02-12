@@ -14,7 +14,6 @@ public class PlayerLocation {
 	private float yaw;
 	private float pitch;
 	private UUID id;
-	private boolean blind = false;
 	private boolean invis;
 	
 	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis) {
@@ -71,14 +70,6 @@ public class PlayerLocation {
 	
 	public UUID getID() {
 		return id;
-	}
-	
-	public boolean isBlind() {
-		return blind;
-	}
-	
-	public void setBlind(boolean blind) {
-		this.blind = blind;
 	}
 	
 	public boolean isInvis() {
