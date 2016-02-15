@@ -47,13 +47,6 @@ public class PlayerLocation {
 		return dx * dx + dy * dy + dz * dz;
 	}
 	
-	public double getDistance(PlayerLocation loc) {
-		double dx = x - loc.x;
-		double dy = y - loc.y;
-		double dz = z - loc.z;
-		return Math.sqrt(dx * dx + dy * dy + dz * dz);
-	}
-	
 	@Override
 	public boolean equals(Object other) {
 		if(!(other instanceof PlayerLocation))

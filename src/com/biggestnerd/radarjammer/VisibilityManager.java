@@ -391,10 +391,10 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		}
 		
 		private boolean shouldHide(PlayerLocation loc, PlayerLocation other) {
-			double dist = loc.getDistance(other);
 			if(showCombatTagged && ctManager.isTagged(loc.getID())) return false;
 			boolean blind = blinded.containsKey(loc.getID());
 			if(blind || other.isInvis()) return true;
+			double dist = loc.getSquaredDistance(other);
 			if(dist > minCheck) {
 				if(dist < maxCheck) {
 					return loc.getAngle(other) > maxFov;
