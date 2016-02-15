@@ -59,7 +59,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private RadarJammer plugin;
 	
 	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov, boolean showCombatTagged, boolean trueInvis, 
-							 boolean timing, float maxSpin, long flagTime, int maxFlags, int blindDuration) {
+							 boolean timing, float maxSpin, long flagTime, int maxFlags, int blindDuration, boolean loadtest) {
 		this.plugin = plugin;
 		log = plugin.getLogger();
 		maps = new ConcurrentHashMap<UUID, HashSet<UUID>[]>();
@@ -89,6 +89,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		calcThread.start();
 		antiBypassThread = new AntiBypassThread();
 		antiBypassThread.start();
+		if(loadtest) new SyntheticLoadTest().runTaskTimerAsynchronously(plugin, 1L, 1L);
 		log.info(String.format("VisibilityManager initialized! minCheck: %d, maxCheck: %d, maxFov: %f, showCombatTagged: %b", minCheck, maxCheck, maxFov, this.showCombatTagged));
 	}
 
@@ -391,7 +392,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		
 		private boolean shouldHide(PlayerLocation loc, PlayerLocation other) {
 			double dist = loc.getDistance(other);
-			if(ctManager.isTagged(loc.getID())) return false;
+			if(showCombatTagged && ctManager.isTagged(loc.getID())) return false;
 			boolean blind = blinded.containsKey(loc.getID());
 			if(blind || other.isInvis()) return true;
 			if(dist > minCheck) {
@@ -466,6 +467,41 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				float change = Math.abs(last - newAngle);
 				angleChange.get(player)[1] = newAngle;
 				angleChange.get(player)[0] += change;
+			}
+		}
+	}
+	
+	class SyntheticLoadTest extends BukkitRunnable {
+		
+		private PlayerLocation[] locations;
+		
+		public SyntheticLoadTest() {
+			locations = new PlayerLocation[100];
+			int i = 0;
+			for(int x = 0; x < 10; x++) {
+				for(int z = 0; z < 10; z++) {
+					UUID id = UUID.randomUUID();
+					PlayerLocation location = new PlayerLocation(x * 10, 60, z * 10, 0, 0, id, false);
+					locations[i++] = location;
+					calcThread.queueLocation(location);
+					HashSet<UUID>[] buffers = maps.get(id);
+					if (buffers == null) {
+						maps.put(id, allocate());
+					} else {
+						for (HashSet<UUID> buffer : buffers){
+							buffer.clear();
+						}
+					}
+				}
+			}
+		}
+		
+		@Override
+		public void run() {
+			for(int i = 0; i < locations.length; i++) {
+				if(locations[i] == null) break;
+				locations[i].addYaw(.5F);
+				calcThread.queueLocation(locations[i]);
 			}
 		}
 	}

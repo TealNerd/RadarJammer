@@ -24,7 +24,7 @@ public class RadarJammer extends JavaPlugin {
 	
 	private void initializeVisibilityManager() {
 		FileConfiguration config = getConfig();
-		int minCheck = config.getInt("minCheck", 14);
+		int minCheck = config.getInt("minCheck", 10);
 		String maxCheckString = config.getString("maxCheck", "auto");
 		int maxCheck = 0;
 		if(maxCheckString.equals("auto")) {
@@ -40,11 +40,12 @@ public class RadarJammer extends JavaPlugin {
 		boolean trueInvis = config.getBoolean("trueInvis", true);
 		boolean timing = config.getBoolean("timing", false);
 		float maxSpin = config.getInt("maxSpin", 500);
-		long flagTime = config.getInt("flagTime", 55) * 1000l;
+		long flagTime = config.getInt("flagTime", 60) * 1000l;
 		int maxFlags = config.getInt("maxFlags", 100);
 		int blindDuration = config.getInt("blindDuration", 3);
+		boolean loadtest = config.getBoolean("loadtest", false);
 		
-		visManager = new VisibilityManager(this, minCheck, maxCheck, maxFov, showCombatTagged, trueInvis, timing, maxSpin, flagTime, maxFlags, blindDuration);
+		visManager = new VisibilityManager(this, minCheck, maxCheck, maxFov, showCombatTagged, trueInvis, timing, maxSpin, flagTime, maxFlags, blindDuration, loadtest);
 		getServer().getPluginManager().registerEvents(visManager, this);
 	}
 }

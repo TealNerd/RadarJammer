@@ -76,6 +76,10 @@ public class PlayerLocation {
 		return invis;
 	}
 	
+	public void addYaw(float toAdd) {
+		yaw += toAdd;
+	}
+	
 	public class Vector {
 
 		private double x;

@@ -1,4 +1,4 @@
-minCheck: 14
+minCheck: 10
 maxCheck: auto
 vFov: 35.0
 hFov: 60.0
@@ -14,8 +14,12 @@ blindDuration: 3
 #Default of 500 is pretty hard to flag even if you're spinning really fast
 maxSpin: 500
 #The maximum number of flags per time
-maxFlags: 55
+maxFlags: 100
 #The time in seconds between flag number checks
 flagTime: 60
 #calculate and show timing data (really just for dev purposes)
 timing: false
+#Whether or not to run a synthetic load test, pretty much exclusively for testing purposes.
+#Make sure your minCheck is less than 10 and maxCheck is greater than 100 (or have a view distance of at least 6 with auto) to get the best indication of performance under load
+#This synthetic test is much more intensive than you will realistically ever see. I suggest turning timings on as well if you use this to actually have an idea of how it's doing
+loadtest: false
