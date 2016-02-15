@@ -67,8 +67,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		blindQueue = new ConcurrentLinkedQueue<UUID>();
 		buffer = new AtomicBoolean();
 
-		this.minCheck = minCheck*minCheck;
-		this.maxCheck = maxCheck*maxCheck;
+		this.minCheck = minCheck;
+		this.maxCheck = maxCheck;
 		this.maxFov = maxFov;
 		boolean ctEnabled = plugin.getServer().getPluginManager().isPluginEnabled("CombatTagPlus");
 		if(!ctEnabled || !showCombatTagged) {
@@ -394,7 +394,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			if(showCombatTagged && ctManager.isTagged(loc.getID())) return false;
 			boolean blind = blinded.containsKey(loc.getID());
 			if(blind || other.isInvis()) return true;
-			double dist = loc.getSquaredDistance(other);
+			double dist = loc.getDistance(other);
 			if(dist > minCheck) {
 				if(dist < maxCheck) {
 					return loc.getAngle(other) > maxFov;
