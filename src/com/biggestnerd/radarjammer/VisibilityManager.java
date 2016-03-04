@@ -155,7 +155,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			HashSet<UUID>[] buffers = maps.get(pu);
 			if (buffers == null) {
 				maps.put(pu, allocate());
-				buffers = maps.get(pu);
+				continue;
 			}
 			
 			HashSet<UUID> show = buffers[buff?1:2];
