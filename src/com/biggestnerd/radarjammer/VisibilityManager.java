@@ -22,6 +22,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
@@ -482,7 +483,16 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			for(int x = 0; x < 10; x++) {
 				for(int z = 0; z < 10; z++) {
 					UUID id = UUID.randomUUID();
-					PlayerLocation location = new PlayerLocation(x * 10, 60, z * 10, 0, 0, id, false);
+					
+					Vector vector = new Vector();
+			        double rotX = 0f;
+			        double rotY = 0f;
+			        vector.setY(-Math.sin(Math.toRadians(rotY)));
+			        double xz = Math.cos(Math.toRadians(rotY));
+			        vector.setX(-xz * Math.sin(Math.toRadians(rotX)));
+			        vector.setZ(xz * Math.cos(Math.toRadians(rotX)));
+
+					PlayerLocation location = new PlayerLocation(x * 10, 60, z * 10, vector, id, false);
 					locations[i++] = location;
 					calcThread.queueLocation(location);
 					HashSet<UUID>[] buffers = maps.get(id);

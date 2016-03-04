@@ -3,11 +3,11 @@ package com.biggestnerd.radarjammer;
 import java.util.UUID;
 
 import org.bukkit.Location;
+import org.bukkit.util.Vector;
 
 public class PlayerLocation {
 	
 	private static final double degrees = 180 / Math.PI;
-	private static final double radians = Math.PI / 180;
 	private double x;
 	private double y;
 	private double z;
@@ -15,39 +15,24 @@ public class PlayerLocation {
 	private float pitch;
 	private UUID id;
 	private boolean invis;
+	private Vector direction;
 	
-	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis) {
+	public PlayerLocation(double x, double y, double z, Vector direction, UUID id, boolean invis) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
-		this.yaw = fixYaw(yaw);
-		this.pitch = pitch;
+		this.direction = direction;
 		this.id = id;
 		this.invis = invis;
 	}
 	
 	public PlayerLocation(Location loc, UUID id, boolean invis) {
-		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis);
+		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getDirection(), id, invis);
 	}
-  
-  private float fixYaw(float yaw) {
-    if(yaw >= 0 && yaw <= 360) return yaw;
-    float multiplier = Math.abs(yaw) / 360f;
-    multiplier -= (int)multiplier;
-    float fixed = multiplier * 360f;
-    if(yaw < 0) {
-      fixed = 360f - fixed;
-    }
-    return fixed;
-  }
 	
 	public double getAngle(PlayerLocation other) {
-		double xz = Math.cos(pitch * radians);
-		double vX = (-xz * Math.sin(yaw * radians));
-		double vZ = (xz * Math.cos(yaw * radians));
-		Vector vec1 = new Vector(vX, vZ, -Math.sin(pitch * radians));
-		Vector vec2 = new Vector(other.x - x, other.z - z, other.y - y);
-		return vec1.angle(vec2);
+		Vector toPlayer = new Vector(other.x - x, other.z - z, other.y - y);
+		return direction.angle(toPlayer) * degrees;
 	}
 
 	public double getSquaredDistance(PlayerLocation loc){
@@ -81,31 +66,5 @@ public class PlayerLocation {
 	
 	public void addYaw(float toAdd) {
 		yaw += toAdd;
-	}
-	
-	public class Vector {
-
-		private double x;
-		private double z;
-		private double y;
-		
-		public Vector(double x, double z, double y) {
-			this.x = x;
-			this.z = z;
-			this.y = y;
-		}
-
-		public double angle(Vector other) {
-			double dot = dot(other) / (length() * other.length());
-			return Math.acos(dot) * degrees;
-		}
-		
-		public double dot(Vector other) {
-			return x * other.x + y * other.y + z * other.z;
-		}
-		
-		public double length() {
-			return Math.sqrt((x * x) + (z * z) + (y * y));
-		}
 	}
 }
