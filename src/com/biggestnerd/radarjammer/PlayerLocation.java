@@ -20,9 +20,8 @@ public class PlayerLocation {
 		this.x = x;
 		this.y = y;
 		this.z = z;
-		this.yaw = yaw;
+		this.yaw = fixYaw(yaw);
 		this.pitch = pitch;
-		if(yaw < 0) yaw += 360;
 		this.id = id;
 		this.invis = invis;
 	}
@@ -30,6 +29,17 @@ public class PlayerLocation {
 	public PlayerLocation(Location loc, UUID id, boolean invis) {
 		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis);
 	}
+  
+  private float fixYaw(float yaw) {
+    if(yaw >= 0 && yaw <= 360) return yaw;
+    float multiplier = Math.abs(yaw) / 360f;
+    multiplier -= (int)multiplier;
+    float fixed = multiplier * 360f;
+    if(yaw < 0) {
+      fixed = 360f - fixed;
+    }
+    return fixed;
+  }
 	
 	public double getAngle(PlayerLocation other) {
 		double xz = Math.cos(pitch * radians);
