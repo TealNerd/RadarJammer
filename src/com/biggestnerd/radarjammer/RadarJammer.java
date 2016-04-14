@@ -34,7 +34,6 @@ public class RadarJammer extends JavaPlugin {
 		}
 		double vFov = config.getDouble("vFov", 35.0);
 		double hFov = config.getDouble("hFov", 60.0);
-		double maxFov = Math.sqrt((vFov * vFov) + (hFov * hFov));
 		
 		boolean showCombatTagged = config.getBoolean("showCombatTagged", true);
 		boolean trueInvis = config.getBoolean("trueInvis", true);
@@ -45,7 +44,7 @@ public class RadarJammer extends JavaPlugin {
 		int blindDuration = config.getInt("blindDuration", 3);
 		boolean loadtest = config.getBoolean("loadtest", false);
 		
-		visManager = new VisibilityManager(this, minCheck, maxCheck, maxFov, showCombatTagged, trueInvis, timing, maxSpin, flagTime, maxFlags, blindDuration, loadtest);
+		visManager = new VisibilityManager(this, minCheck, maxCheck, hFov, vFov, showCombatTagged, trueInvis, timing, maxSpin, flagTime, maxFlags, blindDuration, loadtest);
 		getServer().getPluginManager().registerEvents(visManager, this);
 	}
 }

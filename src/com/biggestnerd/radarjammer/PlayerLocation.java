@@ -3,7 +3,6 @@ package com.biggestnerd.radarjammer;
 import java.util.UUID;
 
 import org.bukkit.Location;
-import org.bukkit.util.Vector;
 
 public class PlayerLocation {
 	
@@ -15,31 +14,53 @@ public class PlayerLocation {
 	private float pitch;
 	private UUID id;
 	private boolean invis;
-	private Vector direction;
 	
-	public PlayerLocation(double x, double y, double z, Vector direction, UUID id, boolean invis) {
+	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
-		this.direction = direction;
+		this.yaw = yaw;
+		this.pitch = pitch;
 		this.id = id;
 		this.invis = invis;
 	}
 	
 	public PlayerLocation(Location loc, UUID id, boolean invis) {
-		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getDirection(), id, invis);
+		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis);
 	}
 	
-	public double getAngle(PlayerLocation other) {
-		Vector toPlayer = new Vector(other.x - x, other.z - z, other.y - y);
-		return direction.angle(toPlayer) * degrees;
+	public double getVerticalAngle(PlayerLocation other) {
+		PlayerLocation corner = new PlayerLocation(other.x, y, other.z, 0, 0, null, false);
+		double vRads = Math.atan(corner.getDistance(other) / corner.getDistance(this));
+		double vAngle = vRads * degrees;
+		return Math.abs(vAngle - pitch);
 	}
-
+	
+	public double getHorizontalAngle(PlayerLocation other) {
+		double ox = other.x - x;
+		double oz = other.z - z;
+		double slope = ox/oz;
+		double angle = Math.atan(slope) * degrees;
+		if(angle < 0) angle += 360;
+		angle += 90;
+		if(angle >= 360) angle -= 360;
+		double adjustedYaw = yaw;
+		if(angle > 270 && yaw < 90) adjustedYaw += 360;
+		return Math.abs(adjustedYaw - angle);
+	}
+	
 	public double getSquaredDistance(PlayerLocation loc){
 		double dx = x - loc.x;
 		double dy = y - loc.y;
 		double dz = z - loc.z;
 		return dx * dx + dy * dy + dz * dz;
+	}
+	
+	public double getDistance(PlayerLocation loc) {
+		double dx = x - loc.x;
+		double dy = y - loc.y;
+		double dz = z - loc.z;
+		return Math.sqrt(dx * dx + dy * dy + dz * dz);
 	}
 	
 	@Override
