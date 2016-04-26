@@ -22,7 +22,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
@@ -32,14 +31,13 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 
 import net.md_5.bungee.api.ChatColor;
-import net.minelink.ctplus.CombatTagPlus;
-import net.minelink.ctplus.TagManager;
 
 public class VisibilityManager extends BukkitRunnable implements Listener{
 	
 	private int minCheck;
 	private int maxCheck;
-	private double maxFov;
+	private double hFov;
+	private double vFov;
 	private boolean showCombatTagged;
 	private boolean trueInvis;
 	private boolean timing;
@@ -55,11 +53,10 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	
 	private CalculationThread calcThread;
 	private AntiBypassThread antiBypassThread;
-	private TagManager ctManager;
 	private Logger log;
 	private RadarJammer plugin;
 	
-	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double maxFov, boolean showCombatTagged, boolean trueInvis, 
+	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double hFov, double vFov, boolean showCombatTagged, boolean trueInvis, 
 							 boolean timing, float maxSpin, long flagTime, int maxFlags, int blindDuration, boolean loadtest) {
 		this.plugin = plugin;
 		log = plugin.getLogger();
@@ -70,14 +67,15 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 
 		this.minCheck = minCheck*minCheck;
 		this.maxCheck = maxCheck*maxCheck;
-		this.maxFov = maxFov;
+		this.hFov = hFov;
+		this.vFov = vFov;
 		boolean ctEnabled = plugin.getServer().getPluginManager().isPluginEnabled("CombatTagPlus");
 		if(!ctEnabled || !showCombatTagged) {
 			this.showCombatTagged = false;
 		} else {
 			log.info("RadarJammer will show combat tagged players.");
 			this.showCombatTagged = true;
-			ctManager = ((CombatTagPlus) plugin.getServer().getPluginManager().getPlugin("CombatTagPlus")).getTagManager();
+			CombatTagManager.initialize();
 		}
 		this.trueInvis = trueInvis;
 		this.timing = timing;
@@ -91,7 +89,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		antiBypassThread = new AntiBypassThread();
 		antiBypassThread.start();
 		if(loadtest) new SyntheticLoadTest().runTaskTimerAsynchronously(plugin, 1L, 1L);
-		log.info(String.format("VisibilityManager initialized! minCheck: %d, maxCheck: %d, maxFov: %f, showCombatTagged: %b", minCheck, maxCheck, maxFov, this.showCombatTagged));
+		log.info("VisibilityManager initialized!");
 	}
 
 	private long lastCheckRun = 0l;
@@ -245,11 +243,12 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private PlayerLocation getLocation(Player player) {
 		boolean invis = player.hasPotionEffect(PotionEffectType.INVISIBILITY);
 		if(trueInvis) {
-			ItemStack inHand = player.getItemInHand();
+			ItemStack inHand = player.getInventory().getItemInMainHand();
+			ItemStack offHand = player.getInventory().getItemInOffHand();
 			ItemStack[] armor = player.getInventory().getArmorContents();
 			boolean hasArmor = false;
 			for(ItemStack item : armor) if(item != null && item.getType() != Material.AIR) hasArmor = true;
-			invis = invis && (inHand == null || inHand.getType() == Material.AIR) && hasArmor;
+			invis = invis && (inHand == null || inHand.getType() == Material.AIR) && (offHand == null || offHand.getType() == Material.AIR) && hasArmor;
 		}
 		return new PlayerLocation(player.getEyeLocation(), player.getUniqueId(), invis);
 	}
@@ -275,7 +274,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 						recalc.add(next);
 					}
 					try {
-						sleep(0l);
+						sleep(1l);
 					}catch(InterruptedException ie) {}
 				}
 				if(!recalc.isEmpty()) {
@@ -284,6 +283,9 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				if (calcRuns > 20) {
 					showAvg();
 				}
+				try {
+					sleep(1l);
+				}catch(InterruptedException ie) {}
 			}
 		}
 
@@ -393,13 +395,15 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		}
 		
 		private boolean shouldHide(PlayerLocation loc, PlayerLocation other) {
-			if(showCombatTagged && ctManager.isTagged(loc.getID())) return false;
+			if(showCombatTagged && CombatTagManager.isTagged(loc.getID())) return false;
 			boolean blind = blinded.containsKey(loc.getID());
 			if(blind || other.isInvis()) return true;
 			double dist = loc.getSquaredDistance(other);
 			if(dist > minCheck) {
 				if(dist < maxCheck) {
-					return loc.getAngle(other) > maxFov;
+					double vAngle = loc.getVerticalAngle(other);
+					double hAngle = loc.getHorizontalAngle(other);
+					return !(vAngle < vFov && hAngle < hFov);
 				} else {
 					return true;
 				}
@@ -458,6 +462,9 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 						}
 					}
 				}
+				try {
+					sleep(1l);
+				}catch(InterruptedException ie) {}
 			}
 		}
 		
@@ -483,16 +490,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			for(int x = 0; x < 10; x++) {
 				for(int z = 0; z < 10; z++) {
 					UUID id = UUID.randomUUID();
-					
-					Vector vector = new Vector();
-			        double rotX = 0f;
-			        double rotY = 0f;
-			        vector.setY(-Math.sin(Math.toRadians(rotY)));
-			        double xz = Math.cos(Math.toRadians(rotY));
-			        vector.setX(-xz * Math.sin(Math.toRadians(rotX)));
-			        vector.setZ(xz * Math.cos(Math.toRadians(rotX)));
 
-					PlayerLocation location = new PlayerLocation(x * 10, 60, z * 10, vector, id, false);
+					PlayerLocation location = new PlayerLocation(x * 10, 60, z * 10, 0, 0, id, false);
 					locations[i++] = location;
 					calcThread.queueLocation(location);
 					HashSet<UUID>[] buffers = maps.get(id);

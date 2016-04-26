@@ -8,6 +8,7 @@ import org.bukkit.util.Vector;
 public class PlayerLocation {
 	
 	private static final double degrees = 180 / Math.PI;
+	private static final double radians = Math.PI / 180;
 	private double x;
 	private double y;
 	private double z;
@@ -15,31 +16,57 @@ public class PlayerLocation {
 	private float pitch;
 	private UUID id;
 	private boolean invis;
-	private Vector direction;
 	
-	public PlayerLocation(double x, double y, double z, Vector direction, UUID id, boolean invis) {
+	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
-		this.direction = direction;
+		this.yaw = yaw;
+		this.pitch = pitch;
 		this.id = id;
 		this.invis = invis;
 	}
 	
 	public PlayerLocation(Location loc, UUID id, boolean invis) {
-		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getDirection(), id, invis);
-	}
-	
-	public double getAngle(PlayerLocation other) {
-		Vector toPlayer = new Vector(other.x - x, other.z - z, other.y - y);
-		return direction.angle(toPlayer) * degrees;
+		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis);
 	}
 
+	public double getVerticalAngle(PlayerLocation other) {
+		PlayerLocation corner = new PlayerLocation(other.x, y, other.z, 0, 0, null, false);
+		double vRads = Math.atan(corner.getDistance(other) / corner.getDistance(this));
+		double vAngle = vRads * degrees;
+		return Math.abs(vAngle - pitch);
+	}
+
+	public double getHorizontalAngle(PlayerLocation other) {
+		Vector lookDirection = getLookVector();
+		Vector to = new Vector(other.x, 0, other.z);
+		Vector from = new Vector(x, 0, z);
+		Vector vec = to.subtract(from);
+		return lookDirection.angle(vec) * degrees;
+	}
+	
+	private Vector getLookVector() {
+		Vector vec = new Vector();
+		vec.setY(0);
+		double yawRads = yaw * radians;
+		vec.setX(-1 * Math.sin(yawRads));
+		vec.setZ(Math.cos(yawRads));
+		return vec;
+	}
+	
 	public double getSquaredDistance(PlayerLocation loc){
 		double dx = x - loc.x;
 		double dy = y - loc.y;
 		double dz = z - loc.z;
 		return dx * dx + dy * dy + dz * dz;
+	}
+	
+	public double getDistance(PlayerLocation loc) {
+		double dx = x - loc.x;
+		double dy = y - loc.y;
+		double dz = z - loc.z;
+		return Math.sqrt(dx * dx + dy * dy + dz * dz);
 	}
 	
 	@Override
