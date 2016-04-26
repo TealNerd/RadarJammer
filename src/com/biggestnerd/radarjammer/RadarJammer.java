@@ -36,7 +36,7 @@ public class RadarJammer extends JavaPlugin {
 		double hFov = config.getDouble("hFov", 60.0);
 		
 		boolean showCombatTagged = config.getBoolean("showCombatTagged", true);
-		boolean trueInvis = config.getBoolean("trueInvis", true);
+		boolean trueInvis = config.getBoolean("trueInvis", false);
 		boolean timing = config.getBoolean("timing", false);
 		float maxSpin = config.getInt("maxSpin", 500);
 		long flagTime = config.getInt("flagTime", 60) * 1000l;

@@ -31,8 +31,6 @@ import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
 
 import net.md_5.bungee.api.ChatColor;
-import net.minelink.ctplus.CombatTagPlus;
-import net.minelink.ctplus.TagManager;
 
 public class VisibilityManager extends BukkitRunnable implements Listener{
 	
@@ -55,7 +53,6 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	
 	private CalculationThread calcThread;
 	private AntiBypassThread antiBypassThread;
-	private TagManager ctManager;
 	private Logger log;
 	private RadarJammer plugin;
 	
@@ -78,7 +75,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		} else {
 			log.info("RadarJammer will show combat tagged players.");
 			this.showCombatTagged = true;
-			ctManager = ((CombatTagPlus) plugin.getServer().getPluginManager().getPlugin("CombatTagPlus")).getTagManager();
+			CombatTagManager.initialize();
 		}
 		this.trueInvis = trueInvis;
 		this.timing = timing;
@@ -398,7 +395,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		}
 		
 		private boolean shouldHide(PlayerLocation loc, PlayerLocation other) {
-			if(showCombatTagged && ctManager.isTagged(loc.getID())) return false;
+			if(showCombatTagged && CombatTagManager.isTagged(loc.getID())) return false;
 			boolean blind = blinded.containsKey(loc.getID());
 			if(blind || other.isInvis()) return true;
 			double dist = loc.getSquaredDistance(other);

@@ -3,10 +3,12 @@ package com.biggestnerd.radarjammer;
 import java.util.UUID;
 
 import org.bukkit.Location;
+import org.bukkit.util.Vector;
 
 public class PlayerLocation {
 	
 	private static final double degrees = 180 / Math.PI;
+	private static final double radians = Math.PI / 180;
 	private double x;
 	private double y;
 	private double z;
@@ -28,25 +30,29 @@ public class PlayerLocation {
 	public PlayerLocation(Location loc, UUID id, boolean invis) {
 		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis);
 	}
-	
+
 	public double getVerticalAngle(PlayerLocation other) {
 		PlayerLocation corner = new PlayerLocation(other.x, y, other.z, 0, 0, null, false);
 		double vRads = Math.atan(corner.getDistance(other) / corner.getDistance(this));
 		double vAngle = vRads * degrees;
 		return Math.abs(vAngle - pitch);
 	}
-	
+
 	public double getHorizontalAngle(PlayerLocation other) {
-		double ox = other.x - x;
-		double oz = other.z - z;
-		double slope = ox/oz;
-		double angle = Math.atan(slope) * degrees;
-		if(angle < 0) angle += 360;
-		angle += 90;
-		if(angle >= 360) angle -= 360;
-		double adjustedYaw = yaw;
-		if(angle > 270 && yaw < 90) adjustedYaw += 360;
-		return Math.abs(adjustedYaw - angle);
+		Vector lookDirection = getLookVector();
+		Vector to = new Vector(other.x, 0, other.z);
+		Vector from = new Vector(x, 0, z);
+		Vector vec = to.subtract(from);
+		return lookDirection.angle(vec) * degrees;
+	}
+	
+	private Vector getLookVector() {
+		Vector vec = new Vector();
+		vec.setY(0);
+		double yawRads = yaw * radians;
+		vec.setX(-1 * Math.sin(yawRads));
+		vec.setZ(Math.cos(yawRads));
+		return vec;
 	}
 	
 	public double getSquaredDistance(PlayerLocation loc){
