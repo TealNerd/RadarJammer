@@ -12,6 +12,7 @@ public class CombatTagManager {
 	private static TagManager ctManager;
 	
 	public static boolean isTagged(UUID player) {
+		if(ctManager == null) return false;
 		return ctManager.isTagged(player);
 	}
 	
