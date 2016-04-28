@@ -1,7 +1,9 @@
 package com.biggestnerd.radarjammer;
 
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
@@ -254,24 +256,20 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	}
 	
 	class CalculationThread extends Thread {
-		
-		private final ConcurrentLinkedQueue<PlayerLocation> playerQueue = new ConcurrentLinkedQueue<PlayerLocation>();
-		private final Set<PlayerLocation> lastLocations = Collections.synchronizedSet(new HashSet<PlayerLocation>());
-		private final Set<PlayerLocation> recalc = Collections.synchronizedSet(new HashSet<PlayerLocation>());
-		
+		private final ConcurrentHashMap<UUID, PlayerLocation> locationMap = new ConcurrentHashMap<UUID, PlayerLocation>();
+		private final Set<UUID> movedPlayers = Collections.synchronizedSet(new LinkedHashSet<UUID>());
+		private final Set<UUID> recalc = Collections.synchronizedSet(new HashSet<UUID>());
 		public void run() {
 			log.info("RadarJammer: Starting calculation thread!");
 			long lastLoopStart = 0l;
 			while(true) {
-				// TODO:
-				// Probably a good idea to bake in some throttling; LinkedQueues are totally unbounded
-				// so if the rate at which players move >>> the rate of processing, we're screwed.
 				lastLoopStart = System.currentTimeMillis();
 				while (System.currentTimeMillis() - lastLoopStart < 50l) {
-					PlayerLocation next = playerQueue.poll();
+					UUID id = movedPlayers.iterator().next();
+					PlayerLocation next = locationMap.get(id);
 					if (next != null) {
-						lastLocations.add(next);
-						recalc.add(next);
+						recalc.add(id);
+						movedPlayers.remove(id);
 					}
 					try {
 						sleep(1l);
@@ -306,7 +304,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		
 		private void queueLocation(PlayerLocation location) {
 			if(location == null) return;
-			playerQueue.offer(location);
+			locationMap.put(location.getID(), location);
+			movedPlayers.add(location.getID());
 		}
 		
 		private double calcSetupAverage = 0d;
@@ -319,8 +318,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		long e_ = 0l;
 
 		private void doCalculations() {
-			for (PlayerLocation pl : recalc) {
-				doCalculations(pl);
+			for (UUID player : recalc) {
+				doCalculations(locationMap.get(player));
 			}
 			recalc.clear();
 		}
@@ -334,7 +333,9 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				calcSetupAverage += (double) (e_ - s_);
 			}
 			UUID id = location.getID();
-			for(PlayerLocation other : lastLocations) {
+			Enumeration<PlayerLocation> players = locationMap.elements();
+			PlayerLocation other;
+			while((other = players.nextElement()) != null) {
 				UUID oid = other.getID();
 				if (id.equals(oid)) continue;
 				if(timing) {
