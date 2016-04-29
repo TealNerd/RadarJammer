@@ -7,8 +7,8 @@ Configuration:
 
 |Option|Value|
 |---|---|
-|vFov|The max vertical view angle, default: 35.0*|
-|hFov|The max horizontal view angle, default: 60.0*|
+|vFov|The max vertical view angle, default: 35|
+|hFov|The max horizontal view angle, default: 60|
 |minCheck| The minimum view check distance, players closer than this will be shown no matter what, default: 10|
 |maxCheck|The distance at which angle checking stops, 'auto' will calculate a maxCheck based on server view distance|
 |showCombatTagged|If true will show combat tagged players regardless of other settings, default: true|
