@@ -4,9 +4,6 @@ vFov: 35.0
 hFov: 60.0
 #Will show combat tagged players, this is nice if you're hiding invis players
 showCombatTagged: true
-#If enabled this will hide invis players even if they have armor on or an item in hand
-#if disabled it will hide invis players with no item in hand and no armor on
-trueInvis: false
 #the duration of blinding in minutes
 #this is amplified by 1 minute for each offense and applies nausea and blindness for the duration
 blindDuration: 3

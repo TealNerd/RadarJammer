@@ -41,7 +41,6 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private double hFov;
 	private double vFov;
 	private boolean showCombatTagged;
-	private boolean trueInvis;
 	private boolean timing;
 	private float maxSpin;
 	private long flagTime;
@@ -58,7 +57,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private Logger log;
 	private RadarJammer plugin;
 	
-	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double hFov, double vFov, boolean showCombatTagged, boolean trueInvis, 
+	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double hFov, double vFov, boolean showCombatTagged,
 							 boolean timing, float maxSpin, long flagTime, int maxFlags, int blindDuration, boolean loadtest) {
 		this.plugin = plugin;
 		log = plugin.getLogger();
@@ -79,7 +78,6 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			this.showCombatTagged = true;
 			CombatTagManager.initialize();
 		}
-		this.trueInvis = trueInvis;
 		this.timing = timing;
 		this.maxSpin = maxSpin;
 		this.flagTime = flagTime;
@@ -244,14 +242,12 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	
 	private PlayerLocation getLocation(Player player) {
 		boolean invis = player.hasPotionEffect(PotionEffectType.INVISIBILITY);
-		if(trueInvis) {
-			ItemStack inHand = player.getInventory().getItemInMainHand();
-			ItemStack offHand = player.getInventory().getItemInOffHand();
-			ItemStack[] armor = player.getInventory().getArmorContents();
-			boolean hasArmor = false;
-			for(ItemStack item : armor) if(item != null && item.getType() != Material.AIR) hasArmor = true;
-			invis = invis && (inHand == null || inHand.getType() == Material.AIR) && (offHand == null || offHand.getType() == Material.AIR) && hasArmor;
-		}
+		ItemStack inHand = player.getInventory().getItemInMainHand();
+		ItemStack offHand = player.getInventory().getItemInOffHand();
+		ItemStack[] armor = player.getInventory().getArmorContents();
+		boolean hasArmor = false;
+		for(ItemStack item : armor) if(item != null && item.getType() != Material.AIR) hasArmor = true;
+		invis = invis && (inHand == null || inHand.getType() == Material.AIR) && (offHand == null || offHand.getType() == Material.AIR) && !hasArmor;
 		return new PlayerLocation(player.getEyeLocation(), player.getUniqueId(), invis);
 	}
 	
