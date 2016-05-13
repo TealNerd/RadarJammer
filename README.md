@@ -18,3 +18,4 @@ Configuration:
 |maxFlags|The maximum number of flags per minute before being blinded, default: 55 (note that this defaults to someone failing 55/60 checks, decrease to be more harsh, increase to be more permissive but dont make it greater than 60 it would never flag|
 |flagTime|The time in between checks to flag, default: 60|
 |timing|Enables timing calculations and debug info, default: false|
+|maxLogoutTime|How long, in ticks, a player should be logged out before we get rid of allocation for them, default: 600000 (10 minutes)|
