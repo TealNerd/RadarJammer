@@ -264,21 +264,19 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		public void run() {
 			log.info("RadarJammer: Starting calculation thread!");
 			long lastLoopStart = 0l;
+			Iterator<UUID> movedIterator = movedPlayers.iterator();
 			while(true) {
 				lastLoopStart = System.currentTimeMillis();
-				Iterator<UUID> movedIterator = movedPlayers.iterator();
-				while (System.currentTimeMillis() - lastLoopStart < 50l) {
-					if(movedIterator.hasNext()) {
-						UUID id = movedIterator.next();
-						PlayerLocation next = locationMap.get(id);
-						if (next != null) {
-							recalc.add(id);
-							movedIterator.remove();
-						}
-						try {
-							sleep(1l);
-						}catch(InterruptedException ie) {}
+				while (System.currentTimeMillis() - lastLoopStart < 50l && movedIterator.hasNext()) {
+					UUID id = movedIterator.next();
+					PlayerLocation next = locationMap.get(id);
+					if (next != null) {
+						recalc.add(id);
+						movedIterator.remove();
 					}
+					try {
+						sleep(1l);
+					}catch(InterruptedException ie) {}
 				}
 				if(!recalc.isEmpty()) {
 					doCalculations();
