@@ -266,8 +266,9 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			while(true) {
 				lastLoopStart = System.currentTimeMillis();
 				while (System.currentTimeMillis() - lastLoopStart < 50l) {
-					if(movedPlayers.iterator().hasNext()) {
-						UUID id = movedPlayers.iterator().next();
+					Iterator<UUID> movedIterator = movedPlayers.iterator();
+					if(movedIterator.hasNext()) {
+						UUID id = movedIterator.next();
 						PlayerLocation next = locationMap.get(id);
 						if (next != null) {
 							recalc.add(id);
