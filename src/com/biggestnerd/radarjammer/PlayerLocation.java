@@ -3,8 +3,8 @@ package com.biggestnerd.radarjammer;
 import java.util.UUID;
 
 import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 import org.bukkit.util.Vector;
-
 public class PlayerLocation {
 	
 	private static final double degrees = 180 / Math.PI;
@@ -29,6 +29,10 @@ public class PlayerLocation {
 	
 	public PlayerLocation(Location loc, UUID id, boolean invis) {
 		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis);
+	}
+	
+	public PlayerLocation(Entity e) {
+		this(e.getLocation(), null, false);
 	}
 
 	public double getVerticalAngle(PlayerLocation other) {

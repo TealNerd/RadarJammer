@@ -3,7 +3,9 @@ package com.biggestnerd.radarjammer;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
@@ -14,6 +16,8 @@ import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -25,6 +29,8 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import com.comphenix.packetwrapper.WrapperPlayServerEntityDestroy;
+import com.comphenix.packetwrapper.WrapperPlayServerSpawnEntityLiving;
 import com.comphenix.protocol.PacketType;
 import com.comphenix.protocol.ProtocolLibrary;
 import com.comphenix.protocol.events.ListenerPriority;
@@ -47,8 +53,10 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private int maxFlags;
 	private int blindDuration;
 	private long maxLogoutTime;
+	private int viewDist;
 	
 	private ConcurrentHashMap<UUID, HashSet<UUID>[]> maps;
+	private ConcurrentHashMap<UUID, HashSet<Integer>[]> entityMaps;
 	private ConcurrentHashMap<UUID, Long> blinded;
 	private ConcurrentLinkedQueue<UUID> blindQueue;
 	private ConcurrentHashMap<UUID, Integer> offlineTaskMap;
@@ -64,10 +72,13 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		this.plugin = plugin;
 		log = plugin.getLogger();
 		maps = new ConcurrentHashMap<UUID, HashSet<UUID>[]>();
+		entityMaps = new ConcurrentHashMap<UUID, HashSet<Integer>[]>();
 		blinded = new ConcurrentHashMap<UUID, Long>();
 		blindQueue = new ConcurrentLinkedQueue<UUID>();
 		offlineTaskMap = new ConcurrentHashMap<UUID, Integer>();
 		buffer = new AtomicBoolean();
+		
+		viewDist = (plugin.getServer().getViewDistance() + 1) * 16;
 
 		this.minCheck = minCheck*minCheck;
 		this.maxCheck = maxCheck*maxCheck;
@@ -160,6 +171,11 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				maps.put(pu, allocate());
 				continue;
 			}
+			HashSet<Integer>[] entityBuffers = entityMaps.get(pu);
+			if(entityBuffers == null) {
+				entityMaps.put(pu, allocateEntities());
+				continue;
+			}
 			
 			HashSet<UUID> show = buffers[buff?1:2];
 			HashSet<UUID> hide = buffers[buff?3:4];
@@ -177,6 +193,17 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				}
 				show.clear(); // prepare buffer for next swap.
 			}
+			
+			HashSet<Integer> showEntities = entityBuffers[buff?1:2];
+			HashSet<Integer> hideEntities = entityBuffers[buff?3:4];
+			if(!showEntities.isEmpty()) {
+				for(int i : showEntities) {
+					Entity e = getEntityById(p.getWorld(), i);
+					if(e == null) continue;
+					showEntity(p, e);
+				}
+				showEntities.clear();
+			}
 
 			if (p.hasPermission("jammer.bypass")) continue;
 
@@ -192,6 +219,11 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				hide.clear();
 			}
 
+			if(!hideEntities.isEmpty()) {
+				hideEntities(p, (Integer[])hideEntities.toArray());
+				hideEntities.clear();
+			}
+			
 			if(timing) {
 				t = System.currentTimeMillis();
 				aqp = aqp + ((double)(t-b) - aqp)/pl;
@@ -219,6 +251,14 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				buffer.clear();
 			}
 		}
+		HashSet<Integer>[] entityBuffers = entityMaps.get(player.getUniqueId());
+		if(entityBuffers == null) {
+			entityMaps.put(player.getUniqueId(), allocateEntities());
+		} else {
+			for(HashSet<Integer> buffer : entityBuffers) {
+				buffer.clear();
+			}
+		}
 		Integer task = offlineTaskMap.remove(player.getUniqueId());
 		if(task != null) {
 			plugin.getServer().getScheduler().cancelTask(task);
@@ -236,6 +276,12 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private HashSet<UUID>[] allocate() {
 		return (HashSet<UUID>[]) new HashSet[] { new HashSet<UUID>(), new HashSet<UUID>(), 
 			new HashSet<UUID>(), new HashSet<UUID>(), new HashSet<UUID>() };
+	}
+	
+	@SuppressWarnings("unchecked")
+	private HashSet<Integer>[] allocateEntities() {
+		return (HashSet<Integer>[]) new HashSet[] { new HashSet<Integer>(), new HashSet<Integer>(),
+				new HashSet<Integer>(), new HashSet<Integer>(), new HashSet<Integer>() };
 	}
 	
 	@EventHandler
@@ -256,6 +302,27 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		return new PlayerLocation(player.getEyeLocation(), player.getUniqueId(), invis);
 	}
 	
+	private void showEntity(Player player, Entity e) {
+		WrapperPlayServerSpawnEntityLiving packet = new WrapperPlayServerSpawnEntityLiving(e);
+		packet.sendPacket(player);
+	}
+	
+	private void hideEntities(Player player, Integer[] ids) {
+		WrapperPlayServerEntityDestroy packet = new WrapperPlayServerEntityDestroy();
+		int[] arr = new int[ids.length];
+		for(int i = 0; i < arr.length; i++) {
+			arr[i] = ids[i];
+		}
+		packet.setEntityIds(arr);
+	}
+	
+	private Entity getEntityById(World world, int i) {
+		for(Entity e : world.getEntities()) {
+			if(e.getEntityId() == i) return e;
+		}
+		return null;
+	}
+	
 	class CalculationThread extends Thread {
 		private final ConcurrentHashMap<UUID, PlayerLocation> locationMap = new ConcurrentHashMap<UUID, PlayerLocation>();
 		private final Set<UUID> movedPlayers = Collections.synchronizedSet(new LinkedHashSet<UUID>());
@@ -266,15 +333,17 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			while(true) {
 				lastLoopStart = System.currentTimeMillis();
 				while (System.currentTimeMillis() - lastLoopStart < 50l) {
-					UUID id = movedPlayers.iterator().next();
-					PlayerLocation next = locationMap.get(id);
-					if (next != null) {
-						recalc.add(id);
-						movedPlayers.remove(id);
+					if(movedPlayers.iterator().hasNext()) {
+						UUID id = movedPlayers.iterator().next();
+						PlayerLocation next = locationMap.get(id);
+						if (next != null) {
+							recalc.add(id);
+							movedPlayers.remove(id);
+						}
+						try {
+							sleep(1l);
+						}catch(InterruptedException ie) {}
 					}
-					try {
-						sleep(1l);
-					}catch(InterruptedException ie) {}
 				}
 				if(!recalc.isEmpty()) {
 					doCalculations();
@@ -335,8 +404,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			}
 			UUID id = location.getID();
 			Enumeration<PlayerLocation> players = locationMap.elements();
-			PlayerLocation other;
-			while((other = players.nextElement()) != null) {
+			while(players.hasMoreElements()) {
+				PlayerLocation other = players.nextElement();
 				UUID oid = other.getID();
 				if (id.equals(oid)) continue;
 				if(timing) {
@@ -413,6 +482,37 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				return false;
 			}
 		}
+	}
+	
+	class EntityCalculationThread extends BukkitRunnable {
+
+		@Override
+		public void run() {
+			long start = System.currentTimeMillis();
+			Iterator<? extends Player> iter = Bukkit.getOnlinePlayers().iterator();
+			while(System.currentTimeMillis() - start < 50l && iter.hasNext()) {
+				Player player = iter.next();
+				doCalculations(player);
+			}
+		}
+		
+		private void doCalculations(Player player) {
+			PlayerLocation loc = calcThread.locationMap.get(player.getUniqueId());
+			if(loc == null) return;
+			if(entityMaps.get(player.getUniqueId()) == null) return;
+			List<Entity> loaded = player.getNearbyEntities(viewDist, viewDist, viewDist);
+			for(Entity e : loaded) {
+				PlayerLocation eLoc = new PlayerLocation(e);
+				double hAngle = loc.getHorizontalAngle(eLoc);
+				double vAngle = loc.getVerticalAngle(eLoc);
+				if(hAngle > hFov || vAngle > vFov) {
+					entityMaps.get(player.getUniqueId())[getBuffer(btype.HIDE)].add(e.getEntityId());
+				} else {
+					entityMaps.get(player.getUniqueId())[getBuffer(btype.SHOW)].add(e.getEntityId());
+				}
+			}
+		}
+		
 	}
 	
 	class AntiBypassThread extends Thread {
