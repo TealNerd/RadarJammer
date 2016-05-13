@@ -273,7 +273,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 						PlayerLocation next = locationMap.get(id);
 						if (next != null) {
 							recalc.add(id);
-							movedPlayers.remove(id);
+							movedIterator.remove();
 						}
 						try {
 							sleep(1l);
