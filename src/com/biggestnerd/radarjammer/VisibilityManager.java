@@ -46,10 +46,12 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private long flagTime;
 	private int maxFlags;
 	private int blindDuration;
+	private long maxLogoutTime;
 	
 	private ConcurrentHashMap<UUID, HashSet<UUID>[]> maps;
 	private ConcurrentHashMap<UUID, Long> blinded;
 	private ConcurrentLinkedQueue<UUID> blindQueue;
+	private ConcurrentHashMap<UUID, Integer> offlineTaskMap;
 	private AtomicBoolean buffer;
 	
 	private CalculationThread calcThread;
@@ -57,13 +59,14 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private Logger log;
 	private RadarJammer plugin;
 	
-	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double hFov, double vFov, boolean showCombatTagged,
-							 boolean timing, float maxSpin, long flagTime, int maxFlags, int blindDuration, boolean loadtest) {
+	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double hFov, double vFov, boolean showCombatTagged, boolean timing,
+							float maxSpin, long flagTime, int maxFlags, int blindDuration, boolean loadtest, long maxLogoutTime) {
 		this.plugin = plugin;
 		log = plugin.getLogger();
 		maps = new ConcurrentHashMap<UUID, HashSet<UUID>[]>();
 		blinded = new ConcurrentHashMap<UUID, Long>();
 		blindQueue = new ConcurrentLinkedQueue<UUID>();
+		offlineTaskMap = new ConcurrentHashMap<UUID, Integer>();
 		buffer = new AtomicBoolean();
 
 		this.minCheck = minCheck*minCheck;
@@ -83,6 +86,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		this.flagTime = flagTime;
 		this.maxFlags = maxFlags;
 		this.blindDuration = blindDuration;
+		this.maxLogoutTime = maxLogoutTime;
 		runTaskTimer(plugin, 1L, 1L);
 		calcThread = new CalculationThread();
 		calcThread.start();
@@ -215,22 +219,23 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				buffer.clear();
 			}
 		}
+		Integer task = offlineTaskMap.remove(player.getUniqueId());
+		if(task != null) {
+			plugin.getServer().getScheduler().cancelTask(task);
+		}
+	}
+	
+	@EventHandler
+	public void onPlayerLeave(PlayerQuitEvent event) {
+		UUID id = event.getPlayer().getUniqueId();
+		OfflinePlayerCheck offlineTask = new OfflinePlayerCheck(id);
+		offlineTaskMap.put(id, offlineTask.runTaskLater(plugin, maxLogoutTime).getTaskId());
 	}
 
 	@SuppressWarnings("unchecked")
 	private HashSet<UUID>[] allocate() {
 		return (HashSet<UUID>[]) new HashSet[] { new HashSet<UUID>(), new HashSet<UUID>(), 
 			new HashSet<UUID>(), new HashSet<UUID>(), new HashSet<UUID>() };
-	}
-	
-	@EventHandler
-	public void onPlayerLeave(PlayerQuitEvent event) {
-		//Player player = event.getPlayer();
-		//lastLocations.remove(player);
-		// TODO: While allocation is expensive, keeping allocations forever is bad for long
-		// running servers w/ constrained memory.
-		// To strike a balance, add a LIFO queue here and schedule a task to periodically release
-		// data from old players who haven't returned.
 	}
 	
 	@EventHandler
@@ -509,6 +514,25 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 				if(locations[i] == null) break;
 				locations[i].addYaw(.5F);
 				calcThread.queueLocation(locations[i]);
+			}
+		}
+	}
+	
+	class OfflinePlayerCheck extends BukkitRunnable {
+		private UUID id;
+		
+		public OfflinePlayerCheck(UUID player) {
+			this.id = player;
+		}
+		
+		@Override
+		public void run () {
+			Player player = Bukkit.getPlayer(id);
+			if(player == null || !player.isOnline()) {
+				maps.remove(id);
+				blinded.remove(id);
+				blindQueue.remove(id);
+				offlineTaskMap.remove(player);
 			}
 		}
 	}
