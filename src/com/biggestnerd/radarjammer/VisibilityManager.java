@@ -337,8 +337,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			}
 			UUID id = location.getID();
 			Enumeration<PlayerLocation> players = locationMap.elements();
-			PlayerLocation other;
-			while((other = players.nextElement()) != null) {
+			while(players.hasMoreElements()) {
+				PlayerLocation other = players.nextElement();
 				UUID oid = other.getID();
 				if (id.equals(oid)) continue;
 				if(timing) {
