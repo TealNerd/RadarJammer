@@ -20,3 +20,5 @@ timing: false
 #Make sure your minCheck is less than 10 and maxCheck is greater than 100 (or have a view distance of at least 6 with auto) to get the best indication of performance under load
 #This synthetic test is much more intensive than you will realistically ever see. I suggest turning timings on as well if you use this to actually have an idea of how it's doing
 loadtest: false
+maxLogoutTime: 600000
+entities: false #currently does nothing

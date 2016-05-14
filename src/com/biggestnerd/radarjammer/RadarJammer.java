@@ -45,8 +45,10 @@ public class RadarJammer extends JavaPlugin {
 
 		long maxLogoutTime = config.getLong("maxLogoutTime", 600000);
 		
+		boolean entities = config.getBoolean("hideEntities", false);
+		
 		visManager = new VisibilityManager(this, minCheck, maxCheck, hFov, vFov, showCombatTagged, timing, 
-						maxSpin, flagTime, maxFlags, blindDuration, loadtest, maxLogoutTime);
+						maxSpin, flagTime, maxFlags, blindDuration, loadtest, maxLogoutTime, entities);
 		getServer().getPluginManager().registerEvents(visManager, this);
 	}
 }
