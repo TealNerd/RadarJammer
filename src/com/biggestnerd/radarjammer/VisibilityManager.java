@@ -399,7 +399,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		}
 		
 		private boolean shouldHide(PlayerLocation loc, PlayerLocation other) {
-			if(showCombatTagged && CombatTagManager.isTagged(loc.getID())) return false;
+			if(showCombatTagged && CombatTagManager.isTagged(other.getID())) return false;
 			boolean blind = blinded.containsKey(loc.getID());
 			if(blind || other.isInvis()) return true;
 			double dist = loc.getSquaredDistance(other);
