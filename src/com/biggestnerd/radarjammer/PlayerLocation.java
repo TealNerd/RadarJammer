@@ -3,7 +3,6 @@ package com.biggestnerd.radarjammer;
 import java.util.UUID;
 
 import org.bukkit.Location;
-import org.bukkit.entity.Entity;
 import org.bukkit.util.Vector;
 public class PlayerLocation {
 	
@@ -17,26 +16,26 @@ public class PlayerLocation {
 	private UUID id;
 	private boolean invis;
 	
-	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis) {
+	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis, boolean selfie) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
 		this.yaw = yaw;
 		this.pitch = pitch;
+		if(selfie) {
+			yaw -= 180;
+			pitch = -pitch;
+		}
 		this.id = id;
 		this.invis = invis;
 	}
 	
-	public PlayerLocation(Location loc, UUID id, boolean invis) {
-		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis);
-	}
-	
-	public PlayerLocation(Entity e) {
-		this(e.getLocation(), null, false);
+	public PlayerLocation(Location loc, UUID id, boolean invis, boolean selfie) {
+		this(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ(), loc.getYaw(), loc.getPitch(), id, invis, selfie);
 	}
 
 	public double getVerticalAngle(PlayerLocation other) {
-		PlayerLocation corner = new PlayerLocation(other.x, y, other.z, 0, 0, null, false);
+		PlayerLocation corner = new PlayerLocation(other.x, y, other.z, 0, 0, null, false, false);
 		double vRads = Math.atan(corner.getDistance(other) / corner.getDistance(this));
 		double vAngle = vRads * degrees;
 		return Math.abs(vAngle - pitch);

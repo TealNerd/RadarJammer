@@ -2,9 +2,17 @@ name: ${project.name}
 main: com.biggestnerd.radarjammer.RadarJammer
 version: ${project.version}
 author: biggestnerd
-depend: [ProtocolLib]
+depend: [ProtocolLib, PacketWrapper]
 softdepend: [CombatTagPlus]
+commands:
+   selfie:
+      description: "Toggles selfie mode for taking pictures"
+      usage: "Usage: /selfie"
+      permission: jammer.selfie
 permissions:
    jammer.bypass:
       description: "Allows you to bypass the radar jammer"
       default: op
+   jammer.selfie:
+      description: "Allows you to use selfie mode"
+      default: true

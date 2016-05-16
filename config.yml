@@ -21,4 +21,5 @@ timing: false
 #This synthetic test is much more intensive than you will realistically ever see. I suggest turning timings on as well if you use this to actually have an idea of how it's doing
 loadtest: false
 maxLogoutTime: 600000
-entities: false #currently does nothing
+#currently in testing, not recommended for live
+hideEntities: false

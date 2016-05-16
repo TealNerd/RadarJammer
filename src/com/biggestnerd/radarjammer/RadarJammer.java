@@ -1,9 +1,14 @@
 package com.biggestnerd.radarjammer;
 
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.comphenix.protocol.ProtocolLibrary;
+
+import net.md_5.bungee.api.ChatColor;
 
 public class RadarJammer extends JavaPlugin {
 	
@@ -15,6 +20,7 @@ public class RadarJammer extends JavaPlugin {
 		reloadConfig();
 		initializeVisibilityManager();
 		ProtocolLibrary.getProtocolManager().addPacketListener(new PlayerListManager(this));
+		getCommand("selfie").setExecutor(this);
 	}
 	
 	@Override
@@ -28,7 +34,7 @@ public class RadarJammer extends JavaPlugin {
 		String maxCheckString = config.getString("maxCheck", "auto");
 		int maxCheck = 0;
 		if(maxCheckString.equals("auto")) {
-			maxCheck = getServer().getViewDistance() * 16 + 8;
+			maxCheck = (int) (Math.sqrt(2) * ((getServer().getViewDistance() + 1) * 16));
 		} else {
 			maxCheck = config.getInt("maxCheck");
 		}
@@ -50,5 +56,16 @@ public class RadarJammer extends JavaPlugin {
 		visManager = new VisibilityManager(this, minCheck, maxCheck, hFov, vFov, showCombatTagged, timing, 
 						maxSpin, flagTime, maxFlags, blindDuration, loadtest, maxLogoutTime, entities);
 		getServer().getPluginManager().registerEvents(visManager, this);
+	}
+	
+	@Override
+	public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+		if(!(sender instanceof Player)) {
+			sender.sendMessage(ChatColor.RED + "Only players can take selfies!");
+			return true;
+		}
+		Player player = (Player)sender;
+		visManager.toggleSelfieMode(player);
+		return true;
 	}
 }
