@@ -2,7 +2,7 @@ name: ${project.name}
 main: com.biggestnerd.radarjammer.RadarJammer
 version: ${project.version}
 author: biggestnerd
-depend: [ProtocolLib, PacketWrapper]
+depend: [ProtocolLib]
 softdepend: [CombatTagPlus]
 commands:
    selfie:
