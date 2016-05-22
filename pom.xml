@@ -44,28 +44,23 @@
 
 	<dependencies>
 		<dependency>
-			<groupId>org.spigotmc</groupId>
-			<artifactId>spigot-api</artifactId>
-			<version>1.9.2-R0.1-SNAPSHOT</version>
-			<scope>provided</scope>
-		</dependency>
-		<dependency>
 			<groupId>net.minelink</groupId>
 			<artifactId>CombatTagPlus</artifactId>
 			<version>1.2.3</version>
 			<scope>provided</scope>
 		</dependency>
    	 	<dependency>
-     		<groupId>com.comphenix.protocol</groupId>
-      		<artifactId>ProtocolLib</artifactId>
-      		<version>3.6.5</version>
-    	</dependency>
-    	<dependency>
-    	   <groupId>org.spigotmc</groupId>
-    	   <artifactId>spigot</artifactId>
-    	   <version>1.9.2-R0.1-SNAPSHOT</version>
-    	   <scope>provided</scope>
-    	</dependency>
+     			<groupId>com.comphenix.protocol</groupId>
+      			<artifactId>ProtocolLib</artifactId>
+      			<version>3.6.5</version>
+      			<scope>provided</scope>
+    		</dependency>
+    		<dependency>
+    	   		<groupId>org.spigotmc</groupId>
+    	   		<artifactId>spigot</artifactId>
+    	   		<version>1.9.2-R0.1-SNAPSHOT</version>
+    	   		<scope>provided</scope>
+    		</dependency>
 	</dependencies>
 
 	<repositories>
@@ -78,8 +73,8 @@
 			<url>http://repo.minelink.net/content/repositories/releases/</url>
 		</repository>
 		<repository>
-      		<id>protocollib</id>
-      		<url>http://repo.dmulloy2.net/content/groups/public/</url>
-    	</repository>
+      			<id>protocollib</id>
+      			<url>http://repo.dmulloy2.net/content/groups/public/</url>
+    		</repository>
 	</repositories>
 </project>
