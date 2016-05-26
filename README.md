@@ -19,3 +19,5 @@ Configuration:
 |flagTime|The time in between checks to flag, default: 60|
 |timing|Enables timing calculations and debug info, default: false|
 |maxLogoutTime|How long, in ticks, a player should be logged out before we get rid of allocation for them, default: 600000 (10 minutes)|
+|entities|Whether or not to jam radar for all entites (items, mobs, etc.) STILL IN TESTING USE AT YOUR OWN RISK, default: false|
+|suppresslogging|Whether or not to suppress show/hide logging, default: true|

@@ -23,3 +23,4 @@ loadtest: false
 maxLogoutTime: 600000
 #currently in testing, not recommended for live
 hideEntities: false
+suppresslogging: true

@@ -66,6 +66,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private int blindDuration;
 	private long maxLogoutTime;
 	private boolean entities;
+	private boolean suppress;
 	
 	private ConcurrentHashMap<UUID, HashSet<UUID>[]> maps;
 	private ConcurrentHashMap<UUID, HashSet<Integer>> entityMaps;
@@ -82,7 +83,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private RadarJammer plugin;
 	
 	public VisibilityManager(RadarJammer plugin, int minCheck, int maxCheck, double hFov, double vFov, boolean showCombatTagged, boolean timing,
-							float maxSpin, long flagTime, int maxFlags, int blindDuration, boolean loadtest, long maxLogoutTime, boolean entities) {
+							float maxSpin, long flagTime, int maxFlags, int blindDuration, boolean loadtest, long maxLogoutTime, boolean entities, boolean suppress) {
 		this.plugin = plugin;
 		log = plugin.getLogger();
 		maps = new ConcurrentHashMap<UUID, HashSet<UUID>[]>();
@@ -93,6 +94,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		offlineTaskMap = new ConcurrentHashMap<UUID, Integer>();
 		selfieMode = Collections.synchronizedSet(new HashSet<UUID>());
 		buffer = new AtomicBoolean();
+		this.suppress = suppress;
 
 		this.minCheck = minCheck*minCheck;
 		this.maxCheck = maxCheck*maxCheck;
@@ -198,10 +200,10 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 					Player o = Bukkit.getPlayer(id);
 					if(timing) sh++;
 					if(o != null) {
-						log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
+						if(!suppress) log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
 						p.showPlayer(o);
 						if (hide.remove(id)) { // prefer to show rather then hide. In case of conflict, show wins.
-							log.info(String.format("Suppressed hide of %s from %s", o.getName(), p.getName()));
+							if(!suppress) log.info(String.format("Suppressed hide of %s from %s", o.getName(), p.getName()));
 						}
 					}
 				}
@@ -215,7 +217,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 					Player o = Bukkit.getPlayer(id);
 					if(timing) hi++;
 					if(o != null) {
-						log.info(String.format("Hiding %s from %s", o.getName(), p.getName()));
+						if(!suppress) log.info(String.format("Hiding %s from %s", o.getName(), p.getName()));
 						p.hidePlayer(o);
 					}
 				}
