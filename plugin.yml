@@ -3,7 +3,7 @@ main: com.biggestnerd.radarjammer.RadarJammer
 version: ${project.version}
 author: biggestnerd
 depend: [ProtocolLib]
-softdepend: [CombatTagPlus]
+softdepend: [CombatTagPlus,VanishNoPacket]
 commands:
    selfie:
       description: "Toggles selfie mode for taking pictures"

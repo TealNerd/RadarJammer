@@ -67,6 +67,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	private long maxLogoutTime;
 	private boolean entities;
 	private boolean suppress;
+	private boolean vanish;
 	
 	private ConcurrentHashMap<UUID, HashSet<UUID>[]> maps;
 	private ConcurrentHashMap<UUID, HashSet<Integer>> entityMaps;
@@ -108,6 +109,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			this.showCombatTagged = true;
 			CombatTagManager.initialize();
 		}
+		vanish = plugin.getServer().getPluginManager().isPluginEnabled("VanishNoPacket");
 		this.timing = timing;
 		this.maxSpin = maxSpin;
 		this.flagTime = flagTime;
@@ -200,6 +202,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 					Player o = Bukkit.getPlayer(id);
 					if(timing) sh++;
 					if(o != null) {
+						if(vanish && VanishManager.isVanished(o)) continue;
 						if(!suppress) log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
 						p.showPlayer(o);
 						if (hide.remove(id)) { // prefer to show rather then hide. In case of conflict, show wins.
@@ -290,6 +293,7 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	
 	private PlayerLocation getLocation(Player player) {
 		boolean invis = player.hasPotionEffect(PotionEffectType.INVISIBILITY);
+		if(vanish) invis = invis || VanishManager.isVanished(player);
 		ItemStack inHand = player.getInventory().getItemInMainHand();
 		ItemStack offHand = player.getInventory().getItemInOffHand();
 		ItemStack[] armor = player.getInventory().getArmorContents();
@@ -505,6 +509,10 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 			selfieMode.remove(id);
 			player.sendMessage(ChatColor.DARK_AQUA + "You have left selfie mode.");
 		}
+	}
+	
+	public boolean isInSelfieMode(Player player) {
+		return selfieMode.contains(player.getUniqueId());
 	}
 	
 	class CalculationThread extends Thread {

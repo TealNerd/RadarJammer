@@ -1,5 +1,8 @@
 package com.biggestnerd.radarjammer;
 
+import java.util.HashMap;
+import java.util.UUID;
+
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -13,12 +16,16 @@ import net.md_5.bungee.api.ChatColor;
 public class RadarJammer extends JavaPlugin {
 	
 	private VisibilityManager visManager;
+	private HashMap<UUID, Long> selfieCooldown;
+	private long selfieDelay;
 	
 	@Override
 	public void onEnable() {
+		selfieCooldown = new HashMap<UUID, Long>();
 		saveDefaultConfig();
 		reloadConfig();
 		initializeVisibilityManager();
+		selfieDelay = getConfig().getLong("selfieDelay", 60000);
 		ProtocolLibrary.getProtocolManager().addPacketListener(new PlayerListManager(this));
 		getCommand("selfie").setExecutor(this);
 	}
@@ -65,7 +72,17 @@ public class RadarJammer extends JavaPlugin {
 			return true;
 		}
 		Player player = (Player)sender;
-		visManager.toggleSelfieMode(player);
+		if(!selfieCooldown.containsKey(player.getUniqueId())) {
+			selfieCooldown.put(player.getUniqueId(), 0L);
+		}
+		if(visManager.isInSelfieMode(player)) {
+			selfieCooldown.put(player.getUniqueId(), System.currentTimeMillis());
+			visManager.toggleSelfieMode(player);
+		} else if(System.currentTimeMillis() - selfieCooldown.get(player.getUniqueId()) < selfieDelay) {
+			player.sendMessage(ChatColor.RED + "You have to wait before using selfie mode again!");
+		} else {
+			visManager.toggleSelfieMode(player);
+		}
 		return true;
 	}
 }
