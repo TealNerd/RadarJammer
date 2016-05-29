@@ -1,4 +1,4 @@
-# RadarJammer [![Build Status](http://vps40435.vps.ovh.ca:8080/job/RadarJammer/badge/icon)](http://vps40435.vps.ovh.ca:8080/job/RadarJammer/)
+# RadarJammer [![Build Status](http://vps40435.vps.ovh.ca:8080/job/RadarJammer%201.9.4/badge/icon)](http://vps40435.vps.ovh.ca:8080/job/RadarJammer 1.9.4/)
 Radar jamming plugin for Bukkit/Spigot
 
 Works with 1.8 and 1.9
