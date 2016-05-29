@@ -57,7 +57,7 @@
     	<dependency>
     	   <groupId>org.spigotmc</groupId>
     	   <artifactId>spigot</artifactId>
-    	   <version>1.9.2-R0.1-SNAPSHOT</version>
+    	   <version>1.9.4-R0.1-SNAPSHOT</version>
     	   <scope>provided</scope>
     	</dependency>
     	<dependency>
@@ -69,10 +69,6 @@
 	</dependencies>
 
 	<repositories>
-		<repository>
-			<id>spigot-repo</id>
-			<url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
-		</repository>
 		<repository>
 			<id>minelink-releases</id>
 			<url>http://repo.minelink.net/content/repositories/releases/</url>
