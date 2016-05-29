@@ -70,10 +70,6 @@
 
 	<repositories>
 		<repository>
-			<id>spigot-repo</id>
-			<url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
-		</repository>
-		<repository>
 			<id>minelink-releases</id>
 			<url>http://repo.minelink.net/content/repositories/releases/</url>
 		</repository>
