@@ -444,8 +444,8 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 	
 	private void registerEntityPacketListeners() {
 		ProtocolLibrary.getProtocolManager().addPacketListener(
-			new PacketAdapter(plugin, ListenerPriority.NORMAL, ENTITY_STATUS, ENTITY_MOVE_LOOK, REL_ENTITY_MOVE, ENTITY_LOOK, ENTITY, ENTITY_HEAD_ROTATION,
-					ENTITY_METADATA, ENTITY_VELOCITY, ENTITY_EQUIPMENT, ENTITY_TELEPORT, ENTITY_EFFECT, REMOVE_ENTITY_EFFECT, OPEN_SIGN_ENTITY, SPAWN_ENTITY, SPAWN_ENTITY_LIVING) {
+			new PacketAdapter(plugin, ListenerPriority.NORMAL, ENTITY_STATUS, REL_ENTITY_MOVE, ENTITY_LOOK, ENTITY, ENTITY_HEAD_ROTATION,
+					ENTITY_METADATA, ENTITY_VELOCITY, ENTITY_EQUIPMENT, ENTITY_TELEPORT, ENTITY_EFFECT, REMOVE_ENTITY_EFFECT, SPAWN_ENTITY, SPAWN_ENTITY_LIVING) {
 				@Override
 				public void onPacketSending(PacketEvent event) {
 					UUID player = event.getPlayer().getUniqueId();
