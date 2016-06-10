@@ -18,7 +18,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.craftbukkit.v1_9_R1.entity.CraftPlayer;
+import org.bukkit.craftbukkit.v1_10_R1.entity.CraftPlayer;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
@@ -41,6 +41,7 @@ import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import com.biggestnerd.radarjammer.packets.WrapperPlayServerEntityDestroy;
+import com.biggestnerd.radarjammer.packets.WrapperPlayServerMount;
 import com.biggestnerd.radarjammer.packets.WrapperPlayServerSpawnEntity;
 import com.biggestnerd.radarjammer.packets.WrapperPlayServerSpawnEntityLiving;
 import com.comphenix.protocol.PacketType;
@@ -49,8 +50,7 @@ import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
-
-import net.minecraft.server.v1_9_R1.SoundCategory;
+import com.comphenix.protocol.wrappers.EnumWrappers.SoundCategory;
 
 public class VisibilityManager extends BukkitRunnable implements Listener{
 	
@@ -205,6 +205,9 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 						if(vanish && VanishManager.isVanished(o)) continue;
 						if(!suppress) log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
 						p.showPlayer(o);
+						if(o.getVehicle() != null) {
+							sendMountPacket(o, p);
+						}
 						if (hide.remove(id)) { // prefer to show rather then hide. In case of conflict, show wins.
 							if(!suppress) log.info(String.format("Suppressed hide of %s from %s", o.getName(), p.getName()));
 						}
@@ -241,6 +244,14 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 		}
 	}
 
+	private void sendMountPacket(Player mounted, Player player){
+		Entity vehicle = mounted.getVehicle();
+		WrapperPlayServerMount packet = new WrapperPlayServerMount();
+		packet.setVehicleEID(vehicle.getEntityId());
+		packet.setPassengerEIDs(mounted.getEntityId());
+		packet.sendPacket(player);
+	}
+	
 	@EventHandler
 	public void onPlayerJoin(PlayerJoinEvent event) {
 		Player player = event.getPlayer();
