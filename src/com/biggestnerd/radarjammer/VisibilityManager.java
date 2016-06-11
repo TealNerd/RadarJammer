@@ -205,9 +205,11 @@ public class VisibilityManager extends BukkitRunnable implements Listener{
 						if(vanish && VanishManager.isVanished(o)) continue;
 						if(!suppress) log.info(String.format("Showing %s to %s", o.getName(), p.getName()));
 						p.showPlayer(o);
+						/*
 						if(o.getVehicle() != null) {
 							sendMountPacket(o, p);
 						}
+						*/
 						if (hide.remove(id)) { // prefer to show rather then hide. In case of conflict, show wins.
 							if(!suppress) log.info(String.format("Suppressed hide of %s from %s", o.getName(), p.getName()));
 						}
