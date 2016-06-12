@@ -50,7 +50,8 @@ import com.comphenix.protocol.events.ListenerPriority;
 import com.comphenix.protocol.events.PacketAdapter;
 import com.comphenix.protocol.events.PacketContainer;
 import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers.SoundCategory;
+
+import net.minecraft.server.v1_10_R1.SoundCategory;
 
 public class VisibilityManager extends BukkitRunnable implements Listener{
 	
