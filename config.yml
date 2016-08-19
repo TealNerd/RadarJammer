@@ -1,7 +1,7 @@
 minCheck: 10
 maxCheck: auto
 vFov: 35.0
-hFov: 60.0
+hFov: 65.0
 #Will show combat tagged players, this is nice if you're hiding invis players
 showCombatTagged: true
 #the duration of blinding in minutes
