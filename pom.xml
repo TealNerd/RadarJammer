@@ -4,12 +4,12 @@
 
 	<groupId>com.biggestnerd.radarjammer</groupId>
 	<artifactId>RadarJammer</artifactId>
-	<version>2.3</version>
+	<version>2.4</version>
 	<packaging>jar</packaging>
 
 	<name>RadarJammer</name>
 	<url>https://github.com/tealnerd/radarjammer</url>
-	<description>Bukkit plugin for jamming player radar</description>
+	<description>Spigot plugin for jamming player radar</description>
 	
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -71,7 +71,7 @@
 	<repositories>
 		<repository>
 			<id>minelink-releases</id>
-			<url>http://repo.minelink.net/content/repositories/releases/</url>
+			<url>http://ci.minelink.net/content/repositories/releases/</url>
 		</repository>
 		<repository>
       		<id>protocollib</id>

@@ -16,7 +16,8 @@ public class PlayerLocation {
 	private UUID id;
 	private boolean invis;
 	
-	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis, boolean selfie) {
+	public PlayerLocation(double x, double y, double z, float yaw, float pitch, UUID id, boolean invis, 
+			boolean selfie) {
 		this.x = x;
 		this.y = y;
 		this.z = z;
@@ -84,6 +85,10 @@ public class PlayerLocation {
 	@Override
 	public int hashCode() {
 		return id.hashCode();
+	}
+
+	public boolean hasMoved(PlayerLocation other) {
+		return other.x == x && other.y == y && other.z == z;
 	}
 	
 	public UUID getID() {

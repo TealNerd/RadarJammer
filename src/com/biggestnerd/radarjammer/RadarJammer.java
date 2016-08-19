@@ -28,6 +28,7 @@ public class RadarJammer extends JavaPlugin {
 		selfieDelay = getConfig().getLong("selfieDelay", 60000);
 		ProtocolLibrary.getProtocolManager().addPacketListener(new PlayerListManager(this));
 		getCommand("selfie").setExecutor(this);
+		CompatManager.initialize();
 	}
 	
 	@Override
@@ -46,7 +47,7 @@ public class RadarJammer extends JavaPlugin {
 			maxCheck = config.getInt("maxCheck");
 		}
 		double vFov = config.getDouble("vFov", 35.0);
-		double hFov = config.getDouble("hFov", 60.0);
+		double hFov = config.getDouble("hFov", 65.0);
 		
 		boolean showCombatTagged = config.getBoolean("showCombatTagged", true);
 		boolean timing = config.getBoolean("timing", false);
