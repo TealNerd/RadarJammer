@@ -71,7 +71,7 @@
 	<repositories>
 		<repository>
 			<id>minelink-releases</id>
-			<url>http://ci.minelink.net/content/repositories/releases/</url>
+			<url>http://repo.minelink.net/content/groups/public</url>
 		</repository>
 		<repository>
       		<id>protocollib</id>
